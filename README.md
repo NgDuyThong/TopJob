@@ -174,14 +174,14 @@ docker run -d -p 27017:27017 --name mongodb mongo:latest
 **Option 1: Neo4j Desktop (Recommended)**
 1. Download từ: https://neo4j.com/download/
 2. Tạo database mới
-3. Set password: `topjob123`
+3. Set password của bạn (ví dụ: `your_password`)
 4. Start database
 
 **Option 2: Docker**
 ```bash
 docker run -d \
   -p 7474:7474 -p 7687:7687 \
-  -e NEO4J_AUTH=neo4j/topjob123 \
+  -e NEO4J_AUTH=neo4j/your_password \
   --name neo4j \
   neo4j:latest
 ```
@@ -215,7 +215,7 @@ JWT_EXPIRES_IN=3d
 # Neo4j (Optional - cho chức năng gợi ý)
 NEO4J_URI=neo4j://localhost:7687
 NEO4J_USER=neo4j
-NEO4J_PASSWORD=topjob123
+NEO4J_PASSWORD=your_neo4j_password
 
 # Email (Optional)
 EMAIL_USER=your_email@gmail.com
