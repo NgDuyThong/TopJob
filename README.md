@@ -25,16 +25,16 @@ cd backend
 # Cài đặt dependencies
 npm install
 
-# Tạo file .env (nếu chưa có)
-# Nội dung file .env:
-PORT=5000
-MONGO_URI=mongodb+srv://ngduythong1412_db_user:oXMXCzDMZwp1yc81@cluster0.mq1i3ql.mongodb.net/JobLink
-JWT_SECRET=187a4b1a6d411a215adb4712dac174aa39abfaf368973264011ab0f1ed1787e0c56e83de179ad078b2f46e1eb3111cd139ca5a435371111ea33d2fe38585eef0
-JWT_EXPIRES_IN=3d
-CLIENT_URL=http://localhost:5173
-EMAIL_USER=youremail@gmail.com
-EMAIL_PASS=app_password
-CLOUDINARY_URL=your_cloudinary_api_url
+# Tạo file .env từ .env.example
+# Copy file .env.example và điền thông tin của bạn:
+cp .env.example .env
+
+# Cấu hình các biến môi trường trong file .env:
+# - MONGODB_URI: Connection string MongoDB của bạn
+# - PORT: Port server (mặc định 5000)
+# - JWT_SECRET: Secret key cho JWT (tạo random string)
+# - EMAIL_USER: Email Gmail của bạn
+# - EMAIL_PASS: App password của Gmail
 
 # Chạy server development
 npm run dev
@@ -52,9 +52,11 @@ cd frontend
 # Cài đặt dependencies
 npm install
 
-# Tạo file .env (nếu chưa có)
-# Nội dung file .env:
-VITE_API_URL=http://localhost:5000/api
+# Tạo file .env từ .env.example
+cp .env.example .env
+
+# File .env sẽ chứa:
+# VITE_API_URL=http://localhost:5000/api
 
 # Chạy client development
 npm run dev
