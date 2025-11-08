@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   MagnifyingGlassIcon,
   FunnelIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 import { employerService } from '../../services/employerService';
 import CandidateCard from '../../components/employer/CandidateCard';
@@ -105,6 +107,15 @@ const CandidateSearchPage = () => {
   return (
     <div className="bg-gradient-to-br from-cyan-50 via-white to-blue-50 min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
+        {/* Back Button */}
+        <Link
+          to="/employer/dashboard"
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+        >
+          <ArrowLeftIcon className="h-5 w-5" />
+          Quay lại Dashboard
+        </Link>
+
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3">

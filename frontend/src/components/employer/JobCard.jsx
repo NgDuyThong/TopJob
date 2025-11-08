@@ -126,11 +126,12 @@ const JobCard = ({ job, showActions = true }) => {
               <PencilIcon className="h-5 w-5" />
             </Link>
             <Link
-              to={`/employer/jobs/${job._id}/candidates`}
-              className="px-4 py-2 bg-green-100 text-green-700 rounded-xl hover:bg-green-200 transition-all duration-300"
-              title="Xem ứng viên phù hợp"
+              to={`/employer/jobs/${job._id}/matching-candidates`}
+              className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl hover:from-emerald-600 hover:to-green-700 transition-all duration-300 relative group"
+              title="Tìm ứng viên phù hợp với AI"
             >
               <ChartBarIcon className="h-5 w-5" />
+              <span className="absolute -top-1 -right-1 bg-yellow-400 text-yellow-900 text-xs font-bold px-1 rounded">AI</span>
             </Link>
           </div>
         )}

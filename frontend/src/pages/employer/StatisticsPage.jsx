@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ChartBarIcon,
   BriefcaseIcon,
@@ -8,7 +9,8 @@ import {
   ClockIcon,
   XCircleIcon,
   ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon
+  ArrowTrendingDownIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 import { employerService } from '../../services/employerService';
 import JobStats from '../../components/employer/JobStats';
@@ -164,6 +166,15 @@ const StatisticsPage = () => {
   return (
     <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
+        {/* Back Button */}
+        <Link
+          to="/employer/dashboard"
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+        >
+          <ArrowLeftIcon className="h-5 w-5" />
+          Quay lại Dashboard
+        </Link>
+
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { 
+import {
   BriefcaseIcon,
   UserGroupIcon,
   EyeIcon,
@@ -40,7 +40,7 @@ const DashboardPage = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      
+
       // Load employer profile
       const profileResponse = await employerService.getProfile();
       setProfile(profileResponse.data);
@@ -54,12 +54,12 @@ const DashboardPage = () => {
       const totalJobs = jobs.length;
       const activeJobs = jobs.filter(job => job.status === 'open').length;
       const totalViews = jobs.reduce((sum, job) => sum + (job.views || 0), 0);
-      
+
       // Load applications for each job
       let totalApplications = 0;
       let pendingApplications = 0;
       let hiredCandidates = 0;
-      
+
       for (const job of jobs) {
         try {
           const applicationsResponse = await employerService.getJobApplications(job._id);
@@ -455,15 +455,22 @@ const DashboardPage = () => {
               </div>
             </Link>
 
-            <div className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100">
-              <div className="w-12 h-12 bg-gradient-to-br from-gray-400 to-gray-500 rounded-xl flex items-center justify-center shadow-lg">
+            <Link
+              to="/employer/jobs"
+              className="flex items-center gap-3 p-4 border-2 border-emerald-200 rounded-xl hover:bg-emerald-50 hover:border-emerald-400 transition-all duration-200 group relative overflow-hidden"
+              title="Chọn việc làm để tìm ứng viên phù hợp với AI"
+            >
+              <div className="absolute top-0 right-0 bg-gradient-to-br from-yellow-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-bl-lg shadow-md">
+                AI
+              </div>
+              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
                 <SparklesIcon className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-700">Sắp ra mắt</h3>
-                <p className="text-sm text-gray-500">Tính năng mới</p>
+                <h3 className="font-bold text-gray-900 group-hover:text-emerald-600">Gợi ý ứng viên phù hợp</h3>
+                <p className="text-sm text-gray-600">Gợi ý phù hợp</p>
               </div>
-            </div>
+            </Link>
           </div>
         </div>
       </div>

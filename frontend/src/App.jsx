@@ -325,7 +325,7 @@ function App() {
               </>
             } />
 
-            <Route path="/employer/jobs/:jobId/candidates" element={
+            <Route path="/employer/jobs/:jobId/matching-candidates" element={
               <>
                 <Navbar />
                 <main className="flex-1">

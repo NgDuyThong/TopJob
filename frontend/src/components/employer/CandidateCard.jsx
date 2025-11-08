@@ -49,11 +49,6 @@ const CandidateCard = ({ candidate, onSave, onUnsave, isSaved = false, showMatch
               </div>
 
               <div className="flex items-center gap-2">
-                {showMatchScore && candidate.matchScore !== undefined && (
-                  <div className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-full text-sm font-bold shadow-lg">
-                    {candidate.matchScore}% phù hợp
-                  </div>
-                )}
                 <button
                   onClick={handleToggleSave}
                   className={`p-3 rounded-xl transition-all duration-300 ${

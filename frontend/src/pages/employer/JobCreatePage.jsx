@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { 
   PlusIcon,
   XMarkIcon,
   MapPinIcon,
   CurrencyDollarIcon,
   CalendarIcon,
-  BriefcaseIcon
+  BriefcaseIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 import { jobService } from '../../services/jobService';
 
@@ -160,6 +161,15 @@ const JobCreatePage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Back to Dashboard */}
+        <Link
+          to="/employer/dashboard"
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+        >
+          <ArrowLeftIcon className="h-5 w-5" />
+          Quay lại Dashboard
+        </Link>
+
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Đăng tin tuyển dụng</h1>

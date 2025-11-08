@@ -73,6 +73,15 @@ export const updateCandidateProfile = async (req, res) => {
       { new: true, runValidators: true }
     );
 
+    // Sync to Neo4j
+    try {
+      const neo4jService = (await import('../services/neo4jService.js')).default;
+      await neo4jService.createOrUpdateCandidate(candidate.toObject());
+      console.log('✅ [Neo4j] Synced candidate update:', candidate._id);
+    } catch (neo4jError) {
+      console.error('⚠️ [Neo4j] Failed to sync candidate update:', neo4jError.message);
+    }
+
     res.json({
       status: 'success',
       data: candidate
@@ -113,6 +122,18 @@ export const updateCandidateSkills = async (req, res) => {
       { new: true, runValidators: true }
     );
 
+    // Sync skills to Neo4j (quan trọng cho recommendations)
+    try {
+      const neo4jService = (await import('../services/neo4jService.js')).default;
+      await neo4jService.createOrUpdateCandidate(candidate.toObject());
+      if (skills && skills.length > 0) {
+        await neo4jService.addCandidateSkills(candidate._id.toString(), skills);
+      }
+      console.log('✅ [Neo4j] Synced candidate skills:', candidate._id);
+    } catch (neo4jError) {
+      console.error('⚠️ [Neo4j] Failed to sync skills:', neo4jError.message);
+    }
+
     res.json({
       status: 'success',
       data: candidate
@@ -127,44 +148,59 @@ export const updateCandidateSkills = async (req, res) => {
 
 export const searchJobsBySkills = async (req, res) => {
   try {
-    const candidate = await Candidate.findById(req.user.candidateId);
+    // ==================== NEO4J VERSION ====================
+    // Sử dụng Neo4j Graph Database để tìm jobs phù hợp
+    // Nhanh hơn và chính xác hơn MongoDB
     
-    // Lấy danh sách tên kỹ năng của ứng viên
-    const candidateSkills = candidate.skills.map(skill => skill.name.toLowerCase());
+    const neo4jService = (await import('../services/neo4jService.js')).default;
+    const candidateId = req.user.profileId || req.user.candidateId;
 
-    // Tìm các công việc có kỹ năng phù hợp
-    const matchingJobs = await JobPost.find({
-      status: 'open',
-      deadline: { $gt: new Date() },
-      'skillsRequired.name': { 
-        $in: candidateSkills.map(skill => new RegExp(skill, 'i'))
-      }
-    })
-    .populate('employerId', 'companyName')
-    .sort({ datePosted: -1 });
+    console.log('🔍 [Neo4j] Finding matching jobs for candidate:', candidateId);
 
-    // Tính toán độ phù hợp cho mỗi công việc
-    const jobsWithMatchScore = matchingJobs.map(job => {
-      const matchingSkillsCount = job.skillsRequired.filter(
-        reqSkill => candidateSkills.includes(reqSkill.name.toLowerCase())
-      ).length;
-      
-      const matchScore = (matchingSkillsCount / job.skillsRequired.length) * 100;
+    // Query Neo4j graph database
+    const recommendations = await neo4jService.recommendJobsForCandidate(
+      candidateId.toString(),
+      20
+    );
 
-      return {
-        ...job.toObject(),
-        matchScore: Math.round(matchScore)
-      };
-    });
+    if (recommendations.length === 0) {
+      return res.json({
+        status: 'success',
+        data: [],
+        message: 'Chưa có việc làm phù hợp. Hãy cập nhật thêm kỹ năng!'
+      });
+    }
 
-    // Sắp xếp theo độ phù hợp
-    jobsWithMatchScore.sort((a, b) => b.matchScore - a.matchScore);
+    // Enrich với MongoDB data
+    const jobsWithMatchScore = await Promise.all(
+      recommendations.map(async (rec) => {
+        const job = await JobPost.findById(rec.jobId)
+          .populate('employerId', 'companyName email phone industry')
+          .lean();
+        
+        if (!job) return null;
+
+        return {
+          ...job,
+          matchScore: Math.round(rec.matchScore * 100), // Convert to percentage
+          matchingSkillsCount: rec.matchingSkills,
+          totalRequiredSkills: rec.totalRequired,
+          matchingSkills: rec.matchedSkillNames
+        };
+      })
+    );
+
+    // Filter và sort
+    const validJobs = jobsWithMatchScore.filter(job => job !== null);
+    validJobs.sort((a, b) => b.matchScore - a.matchScore);
 
     res.json({
       status: 'success',
-      data: jobsWithMatchScore
+      data: validJobs,
+      source: 'neo4j' // Đánh dấu data từ Neo4j
     });
   } catch (error) {
+    console.error('❌ Error in searchJobsBySkills:', error);
     res.status(500).json({
       status: 'error',
       message: error.message

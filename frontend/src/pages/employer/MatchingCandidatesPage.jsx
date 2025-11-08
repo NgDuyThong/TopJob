@@ -79,7 +79,7 @@ const MatchingCandidatesPage = () => {
 
   const filteredCandidates = candidates.filter(candidate => {
     const matchesSearch = candidate.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         candidate.email?.toLowerCase().includes(searchQuery.toLowerCase());
+      candidate.email?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesScore = candidate.matchScore >= minMatchScore;
     return matchesSearch && matchesScore;
   });
@@ -90,11 +90,11 @@ const MatchingCandidatesPage = () => {
         {/* Header */}
         <div className="mb-8">
           <Link
-            to="/employer/jobs"
+            to="/employer/dashboard"
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
           >
             <ArrowLeftIcon className="h-5 w-5" />
-            Quay lại danh sách tin tuyển dụng
+            Quay lại Dashboard
           </Link>
 
           <div className="flex items-center gap-3">

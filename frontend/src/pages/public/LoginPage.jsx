@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { EyeIcon, EyeSlashIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
 import { authService } from '../../services/authService';
 import { loginSuccess } from '../../store/slices/authSlice';
@@ -64,6 +64,15 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-600 via-purple-700 to-purple-800 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      {/* Back to Home Button */}
+      <Link
+        to="/"
+        className="absolute top-8 left-8 inline-flex items-center gap-2 text-white hover:text-yellow-300 transition-colors group"
+      >
+        <ArrowLeftIcon className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+        <span className="font-medium">Về trang chủ</span>
+      </Link>
+
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <h2 className="mt-6 text-3xl font-bold text-white">

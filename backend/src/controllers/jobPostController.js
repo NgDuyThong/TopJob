@@ -29,6 +29,18 @@ export const createJobPost = async (req, res) => {
       }
     });
 
+    // Sync to Neo4j
+    try {
+      const neo4jService = (await import('../services/neo4jService.js')).default;
+      await neo4jService.createOrUpdateJob(jobPost.toObject());
+      if (jobPost.skillsRequired && jobPost.skillsRequired.length > 0) {
+        await neo4jService.addJobRequirements(jobPost._id.toString(), jobPost.skillsRequired);
+      }
+      console.log('✅ [Neo4j] Synced new job:', jobPost._id);
+    } catch (neo4jError) {
+      console.error('⚠️ [Neo4j] Failed to sync new job:', neo4jError.message);
+    }
+
     res.status(201).json({
       status: 'success',
       data: jobPost
@@ -83,6 +95,18 @@ export const updateJobPost = async (req, res) => {
       );
     }
 
+    // Sync to Neo4j
+    try {
+      const neo4jService = (await import('../services/neo4jService.js')).default;
+      await neo4jService.createOrUpdateJob(job.toObject());
+      if (job.skillsRequired && job.skillsRequired.length > 0) {
+        await neo4jService.addJobRequirements(job._id.toString(), job.skillsRequired);
+      }
+      console.log('✅ [Neo4j] Synced job update:', job._id);
+    } catch (neo4jError) {
+      console.error('⚠️ [Neo4j] Failed to sync job update:', neo4jError.message);
+    }
+
     res.json({
       status: 'success',
       data: job
@@ -114,6 +138,15 @@ export const deleteJobPost = async (req, res) => {
       { _id: req.user.employerId },
       { $pull: { jobPosts: { jobId: job._id } } }
     );
+
+    // Delete from Neo4j
+    try {
+      const neo4jService = (await import('../services/neo4jService.js')).default;
+      await neo4jService.deleteJob(job._id.toString());
+      console.log('✅ [Neo4j] Deleted job:', job._id);
+    } catch (neo4jError) {
+      console.error('⚠️ [Neo4j] Failed to delete job:', neo4jError.message);
+    }
 
     res.json({
       status: 'success',
@@ -166,7 +199,7 @@ export const getAllJobPosts = async (req, res) => {
 
     // Xây dựng query filters
     const filters = {
-      status: 'open',
+      status: { $in: ['open', 'active'] }, // Support both 'open' and 'active'
       deadline: { $gt: new Date() }
     };
 
@@ -230,7 +263,7 @@ export const searchJobPosts = async (req, res) => {
     const locationRegex = new RegExp(location, 'i');
     
     const filters = {
-      status: 'open',
+      status: { $in: ['open', 'active'] },
       deadline: { $gt: new Date() }
     };
 
@@ -363,7 +396,7 @@ export const searchJobPosts = async (req, res) => {
 export const getRecentJobPosts = async (req, res) => {
   try {
     const jobs = await JobPost.find({
-      status: 'open',
+      status: { $in: ['open', 'active'] },
       deadline: { $gt: new Date() }
     })
     .populate('employerId', 'companyName')

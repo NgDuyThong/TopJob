@@ -74,6 +74,15 @@ export const updateEmployerProfile = async (req, res) => {
       { new: true, runValidators: true }
     );
 
+    // Sync to Neo4j
+    try {
+      const neo4jService = (await import('../services/neo4jService.js')).default;
+      await neo4jService.createOrUpdateEmployer(employer.toObject());
+      console.log('✅ [Neo4j] Synced employer update:', employer._id);
+    } catch (neo4jError) {
+      console.error('⚠️ [Neo4j] Failed to sync employer update:', neo4jError.message);
+    }
+
     res.json({
       status: 'success',
       data: employer
@@ -256,9 +265,17 @@ export const getApplicationDetail = async (req, res) => {
 
 export const getMatchingCandidates = async (req, res) => {
   try {
+    // ==================== NEO4J VERSION ====================
+    // Sử dụng Neo4j Graph Database để tìm candidates phù hợp
+    // Nhanh hơn và chính xác hơn MongoDB
+    
+    const { jobId } = req.params;
+    const employerId = req.user.profileId || req.user.employerId;
+
+    // Verify job exists và thuộc về employer này
     const job = await JobPost.findOne({
-      _id: req.params.jobId,
-      employerId: req.user.employerId
+      _id: jobId,
+      employerId: employerId
     });
 
     if (!job) {
@@ -268,44 +285,56 @@ export const getMatchingCandidates = async (req, res) => {
       });
     }
 
-    // Lấy danh sách kỹ năng yêu cầu
-    const requiredSkills = job.skillsRequired.map(skill => skill.name.toLowerCase());
+    console.log('🔍 [Neo4j] Finding matching candidates for job:', jobId);
 
-    // Tìm ứng viên có kỹ năng phù hợp
-    const candidates = await Candidate.find({
-      'skills.name': { 
-        $in: requiredSkills.map(skill => new RegExp(skill, 'i'))
-      }
-    });
+    // Query Neo4j graph database
+    const neo4jService = (await import('../services/neo4jService.js')).default;
+    const matches = await neo4jService.findMatchingCandidates(jobId, 20);
 
-    // Tính toán độ phù hợp cho mỗi ứng viên
-    const candidatesWithScore = candidates.map(candidate => {
-      const matchingSkills = candidate.skills.filter(
-        skill => requiredSkills.includes(skill.name.toLowerCase())
-      );
+    if (matches.length === 0) {
+      return res.json({
+        status: 'success',
+        data: [],
+        message: 'Chưa có ứng viên phù hợp với yêu cầu công việc'
+      });
+    }
 
-      const matchScore = (matchingSkills.length / requiredSkills.length) * 100;
+    // Enrich với MongoDB data
+    const candidatesWithScore = await Promise.all(
+      matches.map(async (match) => {
+        const candidate = await Candidate.findById(match.candidateId)
+          .select('fullName email phone education experience skills bio')
+          .lean();
+        
+        if (!candidate) return null;
 
-      return {
-        _id: candidate._id,
-        fullName: candidate.fullName,
-        email: candidate.email,
-        education: candidate.education,
-        experience: candidate.experience,
-        skills: candidate.skills,
-        matchScore: Math.round(matchScore),
-        matchingSkills: matchingSkills
-      };
-    });
+        return {
+          _id: candidate._id,
+          fullName: candidate.fullName,
+          email: candidate.email,
+          education: candidate.education,
+          experience: candidate.experience,
+          skills: candidate.skills,
+          matchScore: Math.round(match.matchScore * 100), // Convert to percentage
+          matchingSkills: match.matchedSkillNames.map(name => ({ name })), // Format giống MongoDB
+          matchingSkillsCount: match.matchingSkills,
+          totalRequiredSkills: match.totalRequired,
+          hasApplied: match.hasApplied
+        };
+      })
+    );
 
-    // Sắp xếp theo độ phù hợp
-    candidatesWithScore.sort((a, b) => b.matchScore - a.matchScore);
+    // Filter và sort
+    const validCandidates = candidatesWithScore.filter(c => c !== null);
+    validCandidates.sort((a, b) => b.matchScore - a.matchScore);
 
     res.json({
       status: 'success',
-      data: candidatesWithScore
+      data: validCandidates,
+      source: 'neo4j' // Đánh dấu data từ Neo4j
     });
   } catch (error) {
+    console.error('❌ Error in getMatchingCandidates:', error);
     res.status(500).json({
       status: 'error',
       message: error.message

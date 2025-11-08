@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   HeartIcon,
   MagnifyingGlassIcon,
-  FunnelIcon
+  FunnelIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 import { employerService } from '../../services/employerService';
 import CandidateCard from '../../components/employer/CandidateCard';
@@ -44,7 +46,7 @@ const SavedCandidatesPage = () => {
   };
 
   const filteredCandidates = candidates.filter(candidate => {
-    const matchesSearch = candidate.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = candidate.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          candidate.email?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesEducation = !educationFilter || candidate.education?.toLowerCase().includes(educationFilter.toLowerCase());
     return matchesSearch && matchesEducation;
@@ -57,7 +59,7 @@ const SavedCandidatesPage = () => {
       case 'oldest':
         return new Date(a.savedDate) - new Date(b.savedDate);
       case 'name':
-        return a.fullName.localeCompare(b.fullName);
+        return (a.fullName || '').localeCompare(b.fullName || '');
       default:
         return 0;
     }
@@ -66,6 +68,15 @@ const SavedCandidatesPage = () => {
   return (
     <div className="bg-gradient-to-br from-pink-50 via-white to-rose-50 min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
+        {/* Back Button */}
+        <Link
+          to="/employer/dashboard"
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+        >
+          <ArrowLeftIcon className="h-5 w-5" />
+          Quay lại Dashboard
+        </Link>
+
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3">

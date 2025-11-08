@@ -65,7 +65,7 @@ export const employerService = {
   // Tìm ứng viên phù hợp cho việc làm
   getMatchingCandidates: async (jobId) => {
     try {
-      const response = await api.get(`/employers/jobs/${jobId}/candidates`);
+      const response = await api.get(`/employers/jobs/${jobId}/matching-candidates`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;

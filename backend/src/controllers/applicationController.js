@@ -58,7 +58,7 @@ export const submitApplication = async (req, res) => {
     // Kiểm tra job có tồn tại và còn hạn nộp
     const job = await JobPost.findOne({
       _id: jobpostId,
-      status: 'open',
+      status: { $in: ['open', 'active'] },
       deadline: { $gt: new Date() }
     }).populate('employerId', 'companyName email');
 
@@ -119,6 +119,19 @@ export const submitApplication = async (req, res) => {
     await Candidate.findByIdAndUpdate(candidateId, {
       $push: { applications: application._id }
     });
+
+    // Sync to Neo4j (tạo APPLIED_TO relationship)
+    try {
+      const neo4jService = (await import('../services/neo4jService.js')).default;
+      await neo4jService.createApplication(
+        application.toObject(),
+        candidateId.toString(),
+        jobpostId.toString()
+      );
+      console.log('✅ [Neo4j] Synced new application:', application._id);
+    } catch (neo4jError) {
+      console.error('⚠️ [Neo4j] Failed to sync application:', neo4jError.message);
+    }
 
     // Gửi email thông báo cho nhà tuyển dụng (xử lý lỗi email riêng)
     try {

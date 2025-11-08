@@ -1,0 +1,788 @@
+import neo4j from 'neo4j-driver';
+import { driver } from '../config/neo4j.js';
+
+class Neo4jService {
+  // ==================== ACCOUNT OPERATIONS ====================
+  
+  /**
+   * Tạo Account node và liên kết với Candidate/Employer
+   */
+  async createAccount(accountData, profileData, role) {
+    const session = driver().session();
+    try {
+      const query = `
+        MERGE (a:Account {MaTK: $accountId})
+        SET a.TenDangNhap = $username,
+            a.LoaiTK = $role,
+            a.TrangThaiTK = $status,
+            a.NgayTao = datetime($createdAt)
+        WITH a
+        ${role === 'candidate' ? `
+          MERGE (c:Candidate {MaUV: $profileId})
+          SET c.HoTen = $fullName,
+              c.Email = $email,
+              c.SDT = $phone,
+              c.HocVan = $education,
+              c.KinhNghiem = $experience,
+              c.MoTaBanThan = $bio
+          MERGE (a)-[:BELONGS_TO {CreatedDate: datetime()}]->(c)
+          RETURN a, c
+        ` : `
+          MERGE (e:Employer {MaNTD: $profileId})
+          SET e.TenCongTy = $companyName,
+              e.Email = $email,
+              e.SDT = $phone,
+              e.LinhVuc = $industry,
+              e.MoTaCongTy = $description,
+              e.Website = $website,
+              e.DiaChi = $address,
+              e.QuyMo = $size
+          MERGE (a)-[:BELONGS_TO {CreatedDate: datetime()}]->(e)
+          RETURN a, e
+        `}
+      `;
+      
+      const params = {
+        accountId: accountData._id.toString(),
+        username: accountData.email,
+        role: role,
+        status: accountData.status || 'active',
+        createdAt: accountData.createdAt?.toISOString() || new Date().toISOString(),
+        profileId: profileData._id.toString(),
+        email: profileData.email,
+        phone: profileData.phone || '',
+        fullName: profileData.fullName || '',
+        education: profileData.education || '',
+        experience: profileData.experience || 0,
+        bio: profileData.bio || '',
+        companyName: profileData.companyName || '',
+        industry: profileData.industry || '',
+        description: profileData.description || '',
+        website: profileData.website || '',
+        address: profileData.address || '',
+        size: profileData.companySize || ''
+      };
+      
+      const result = await session.run(query, params);
+      return result.records[0]?.get('a').properties;
+    } finally {
+      await session.close();
+    }
+  }
+
+  // ==================== CANDIDATE OPERATIONS ====================
+  
+  /**
+   * Tạo hoặc cập nhật Candidate node
+   */
+  async createOrUpdateCandidate(candidateData) {
+    const session = driver().session();
+    try {
+      const query = `
+        MERGE (c:Candidate {MaUV: $id})
+        SET c.HoTen = $hoTen,
+            c.Email = $email,
+            c.SDT = $sdt,
+            c.NgaySinh = $ngaySinh,
+            c.GioiTinh = $gioiTinh,
+            c.HocVan = $hocVan,
+            c.KinhNghiem = $kinhNghiem,
+            c.MoTaBanThan = $moTa,
+            c.MucLuongMongMuon = $mucLuong,
+            c.NgonNgu = $ngonNgu,
+            c.updatedAt = datetime()
+        RETURN c
+      `;
+      
+      const result = await session.run(query, {
+        id: candidateData._id.toString(),
+        hoTen: candidateData.fullName || '',
+        email: candidateData.email || '',
+        sdt: candidateData.phone || '',
+        ngaySinh: candidateData.dateOfBirth || '',
+        gioiTinh: candidateData.gender || '',
+        hocVan: candidateData.education || '',
+        kinhNghiem: candidateData.experience || 0,
+        moTa: candidateData.bio || '',
+        mucLuong: candidateData.expectedSalary || 0,
+        ngonNgu: candidateData.languages?.join(', ') || ''
+      });
+      
+      return result.records[0]?.get('c').properties;
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
+   * Thêm skills cho candidate
+   */
+  async addCandidateSkills(candidateId, skills) {
+    const session = driver().session();
+    try {
+      const query = `
+        MATCH (c:Candidate {MaUV: $candidateId})
+        UNWIND $skills as skill
+        MERGE (s:Skill {MaKN: skill.id, TenKyNang: skill.name})
+        SET s.MucDo = skill.level
+        MERGE (c)-[r:HAS_SKILL]->(s)
+        SET r.Level = skill.level,
+            r.YearsExperience = skill.years
+        RETURN c, collect(s) as skills
+      `;
+      
+      await session.run(query, {
+        candidateId,
+        skills: skills.map((s, index) => ({
+          id: s._id?.toString() || `skill_${index}`,
+          name: s.name || s,
+          level: s.proficiency || s.level || 'Trung bình',
+          years: s.yearsUsed || s.years || 1
+        }))
+      });
+      
+      return { success: true };
+    } finally {
+      await session.close();
+    }
+  }
+
+  // ==================== JOB OPERATIONS ====================
+  
+  /**
+   * Tạo hoặc cập nhật JobPost node với đầy đủ relationships
+   */
+  async createOrUpdateJob(jobData) {
+    const session = driver().session();
+    try {
+      const query = `
+        MERGE (j:JobPost {MaBTD: $id})
+        SET j.TieuDe = $tieuDe,
+            j.MoTa = $moTa,
+            j.YeuCau = $yeuCau,
+            j.TrinhDo = $trinhDo,
+            j.KinhNghiem = $kinhNghiem,
+            j.MucLuong = $mucLuong,
+            j.HanNop = $hanNop,
+            j.NgayDang = datetime($ngayDang),
+            j.TrangThai = $trangThai,
+            j.SoLuongTuyen = $soLuong,
+            j.updatedAt = datetime()
+        WITH j
+        
+        // Link to Employer
+        MATCH (e:Employer {MaNTD: $employerId})
+        MERGE (e)-[p:POSTED]->(j)
+        SET p.PostDate = datetime($ngayDang),
+            p.IsActive = $isActive
+        
+        // Link to Position
+        WITH j
+        MERGE (pos:Position {MaVT: $positionId, TenViTri: $positionName})
+        SET pos.CapBac = $capBac
+        MERGE (j)-[:FOR_POSITION]->(pos)
+        
+        // Link to Location
+        WITH j
+        MERGE (loc:Location {MaDD: $locationId, TenDiaDiem: $locationName})
+        MERGE (j)-[:LOCATED_AT]->(loc)
+        
+        RETURN j
+      `;
+      
+      const result = await session.run(query, {
+        id: jobData._id.toString(),
+        tieuDe: jobData.title || '',
+        moTa: jobData.description || '',
+        yeuCau: jobData.requirements?.description || '',
+        trinhDo: jobData.requirements?.education || '',
+        kinhNghiem: jobData.requirements?.experience || 0,
+        mucLuong: jobData.salary?.max || 0,
+        hanNop: jobData.deadline?.toISOString() || '',
+        ngayDang: jobData.createdAt?.toISOString() || new Date().toISOString(),
+        trangThai: jobData.status || 'active',
+        soLuong: jobData.numberOfPositions || 1,
+        employerId: (jobData.employer || jobData.employerId || jobData.employer_id)?.toString() || '',
+        isActive: jobData.status === 'active',
+        positionId: jobData.position || 'pos_default',
+        positionName: jobData.title || 'Developer',
+        capBac: jobData.experienceLevel || 'Mid',
+        locationId: jobData.location || 'loc_default',
+        locationName: jobData.workLocation || 'TP.HCM'
+      });
+      
+      return result.records[0]?.get('j').properties;
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
+   * Thêm required skills cho job
+   */
+  async addJobRequirements(jobId, skills) {
+    const session = driver().session();
+    try {
+      const query = `
+        MATCH (j:JobPost {MaBTD: $jobId})
+        UNWIND $skills as skill
+        MERGE (s:Skill {MaKN: skill.id, TenKyNang: skill.name})
+        SET s.MucDo = skill.level
+        MERGE (j)-[r:REQUIRES_SKILL]->(s)
+        SET r.LevelRequired = skill.level,
+            r.MinYears = skill.minYears
+        RETURN j, collect(s) as skills
+      `;
+      
+      await session.run(query, {
+        jobId,
+        skills: skills.map((s, index) => ({
+          id: s._id?.toString() || `skill_${index}`,
+          name: s.name || s,
+          level: s.level || s.importance || 'Trung bình',
+          minYears: s.minYears || s.years || 1
+        }))
+      });
+      
+      return { success: true };
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
+   * Xóa JobPost node và tất cả relationships
+   */
+  async deleteJob(jobId) {
+    const session = driver().session();
+    try {
+      const query = `
+        MATCH (j:JobPost {MaBTD: $jobId})
+        DETACH DELETE j
+        RETURN count(j) as deleted
+      `;
+      
+      const result = await session.run(query, { jobId });
+      const deleted = result.records[0]?.get('deleted').toNumber() || 0;
+      
+      return { success: deleted > 0, deleted };
+    } finally {
+      await session.close();
+    }
+  }
+
+  // ==================== EMPLOYER OPERATIONS ====================
+  
+  /**
+   * Tạo hoặc cập nhật Employer node
+   */
+  async createOrUpdateCompany(employerData) {
+    const session = driver().session();
+    try {
+      const query = `
+        MERGE (e:Employer {MaNTD: $id})
+        SET e.TenCongTy = $tenCongTy,
+            e.Email = $email,
+            e.SDT = $sdt,
+            e.LinhVuc = $linhVuc,
+            e.MoTaCongTy = $moTa,
+            e.Website = $website,
+            e.DiaChi = $diaChi,
+            e.QuyMo = $quyMo,
+            e.updatedAt = datetime()
+        RETURN e
+      `;
+      
+      const result = await session.run(query, {
+        id: employerData._id.toString(),
+        tenCongTy: employerData.companyName || '',
+        email: employerData.email || '',
+        sdt: employerData.phone || '',
+        linhVuc: employerData.industry || 'Technology',
+        moTa: employerData.description || '',
+        website: employerData.website || '',
+        diaChi: employerData.address || '',
+        quyMo: employerData.companySize || 'Medium'
+      });
+      
+      return result.records[0]?.get('e').properties;
+    } finally {
+      await session.close();
+    }
+  }
+
+  // ==================== APPLICATION OPERATIONS ====================
+  
+  /**
+   * Tạo Application node và relationships
+   */
+  async createApplication(applicationData, candidateId, jobId) {
+    const session = driver().session();
+    try {
+      const query = `
+        // Tạo Application node
+        CREATE (app:Application {
+          MaHS: $appId,
+          NgayNop: datetime($ngayNop),
+          TrangThai: $trangThai,
+          TepCV: $tepCV,
+          ThuGioiThieu: $thuGioiThieu
+        })
+        
+        // Link Candidate -> Application
+        WITH app
+        MATCH (c:Candidate {MaUV: $candidateId})
+        CREATE (c)-[s:SUBMITTED {SubmitDate: datetime($ngayNop)}]->(app)
+        
+        // Link Application -> JobPost
+        WITH app
+        MATCH (j:JobPost {MaBTD: $jobId})
+        CREATE (app)-[:APPLIED_TO]->(j)
+        
+        // Link Application -> Status
+        WITH app
+        MERGE (st:Status {MaTT: $statusId, TenTrangThai: $trangThai})
+        CREATE (app)-[:HAS_STATUS]->(st)
+        
+        RETURN app
+      `;
+      
+      const result = await session.run(query, {
+        appId: applicationData._id.toString(),
+        ngayNop: applicationData.appliedAt?.toISOString() || new Date().toISOString(),
+        trangThai: applicationData.status || 'Đã nộp',
+        tepCV: applicationData.resume || '',
+        thuGioiThieu: applicationData.coverLetter || '',
+        candidateId: candidateId.toString(),
+        jobId: jobId.toString(),
+        statusId: `status_${applicationData.status || 'pending'}`
+      });
+      
+      return result.records[0]?.get('app').properties;
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
+   * Employer xem application
+   */
+  async employerViewApplication(employerId, applicationId) {
+    const session = driver().session();
+    try {
+      const query = `
+        MATCH (e:Employer {MaNTD: $employerId})
+        MATCH (app:Application {MaHS: $applicationId})
+        MERGE (e)-[v:VIEWED]->(app)
+        ON CREATE SET v.ViewedDate = datetime(), v.ViewCount = 1
+        ON MATCH SET v.ViewedDate = datetime(), v.ViewCount = v.ViewCount + 1
+        RETURN v
+      `;
+      
+      await session.run(query, {
+        employerId: employerId.toString(),
+        applicationId: applicationId.toString()
+      });
+      
+      return { success: true };
+    } finally {
+      await session.close();
+    }
+  }
+
+  // ==================== RECOMMENDATION ALGORITHMS ====================
+  
+  /**
+   * Gợi ý jobs phù hợp cho candidate (theo schema mới)
+   */
+  async recommendJobsForCandidate(candidateId, limit = 10) {
+    const session = driver().session();
+    try {
+      const query = `
+        // Tìm skills của candidate
+        MATCH (c:Candidate {MaUV: $candidateId})-[hs:HAS_SKILL]->(s:Skill)
+        
+        // Tìm jobs yêu cầu những skills đó
+        MATCH (j:JobPost)-[rs:REQUIRES_SKILL]->(s)
+        WHERE j.TrangThai = 'active'
+        
+        // Tính toán match score
+        WITH j, 
+             COUNT(DISTINCT s) as matchingSkills,
+             COLLECT(DISTINCT s.TenKyNang) as matchedSkillNames,
+             AVG(CASE hs.Level 
+               WHEN 'Cơ bản' THEN 1 
+               WHEN 'Trung bình' THEN 2 
+               WHEN 'Thành thạo' THEN 3 
+               ELSE 2 END) as avgProficiency
+        
+        // Đếm tổng số skills required
+        MATCH (j)-[:REQUIRES_SKILL]->(allSkills:Skill)
+        WITH j, 
+             matchingSkills, 
+             matchedSkillNames,
+             avgProficiency,
+             COUNT(DISTINCT allSkills) as totalRequired,
+             (matchingSkills * 1.0 / COUNT(DISTINCT allSkills)) as matchScore
+        WHERE matchScore > 0.3
+        
+        // Lấy thông tin employer và location
+        OPTIONAL MATCH (e:Employer)-[:POSTED]->(j)
+        OPTIONAL MATCH (j)-[:LOCATED_AT]->(loc:Location)
+        OPTIONAL MATCH (j)-[:FOR_POSITION]->(pos:Position)
+        
+        RETURN j.MaBTD as jobId,
+               j.TieuDe as title,
+               j.MucLuong as salary,
+               j.KinhNghiem as experience,
+               e.TenCongTy as companyName,
+               loc.TenDiaDiem as location,
+               pos.CapBac as level,
+               matchScore,
+               matchingSkills,
+               totalRequired,
+               matchedSkillNames,
+               avgProficiency
+        ORDER BY matchScore DESC, avgProficiency DESC, j.NgayDang DESC
+        LIMIT $limit
+      `;
+      
+      const result = await session.run(query, { 
+        candidateId, 
+        limit: neo4j.int(limit) 
+      });
+      
+      return result.records.map(record => ({
+        jobId: record.get('jobId'),
+        title: record.get('title'),
+        salary: record.get('salary'),
+        experience: record.get('experience'),
+        companyName: record.get('companyName'),
+        location: record.get('location'),
+        level: record.get('level'),
+        matchScore: record.get('matchScore'),
+        matchingSkills: record.get('matchingSkills').toNumber(),
+        totalRequired: record.get('totalRequired').toNumber(),
+        matchedSkillNames: record.get('matchedSkillNames'),
+        avgProficiency: record.get('avgProficiency')
+      }));
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
+   * Tìm candidates phù hợp cho job (theo schema mới)
+   */
+  async findMatchingCandidates(jobId, limit = 10) {
+    const session = driver().session();
+    try {
+      const query = `
+        // Tìm skills required của job
+        MATCH (j:JobPost {MaBTD: $jobId})-[rs:REQUIRES_SKILL]->(s:Skill)
+        
+        // Tìm candidates có những skills đó
+        MATCH (c:Candidate)-[hs:HAS_SKILL]->(s)
+        
+        // Tính toán match score
+        WITH c,
+             COUNT(DISTINCT s) as matchingSkills,
+             COLLECT(DISTINCT s.TenKyNang) as matchedSkillNames,
+             AVG(CASE hs.Level 
+               WHEN 'Cơ bản' THEN 1 
+               WHEN 'Trung bình' THEN 2 
+               WHEN 'Thành thạo' THEN 3 
+               ELSE 2 END) as avgProficiency,
+             AVG(hs.YearsExperience) as avgYearsUsed
+        
+        // Đếm tổng số skills required
+        MATCH (j:JobPost {MaBTD: $jobId})-[:REQUIRES_SKILL]->(allSkills:Skill)
+        WITH c,
+             matchingSkills,
+             matchedSkillNames,
+             avgProficiency,
+             avgYearsUsed,
+             COUNT(DISTINCT allSkills) as totalRequired,
+             (matchingSkills * 1.0 / COUNT(DISTINCT allSkills)) as matchScore
+        WHERE matchScore > 0.4
+        
+        // Kiểm tra xem candidate đã apply chưa
+        OPTIONAL MATCH (c)-[:SUBMITTED]->(app:Application)-[:APPLIED_TO]->(j:JobPost {MaBTD: $jobId})
+        
+        RETURN c.MaUV as candidateId,
+               c.HoTen as name,
+               c.Email as email,
+               c.SDT as phone,
+               c.KinhNghiem as experience,
+               c.HocVan as education,
+               matchScore,
+               matchingSkills,
+               totalRequired,
+               matchedSkillNames,
+               avgProficiency,
+               avgYearsUsed,
+               CASE WHEN app IS NOT NULL THEN true ELSE false END as hasApplied
+        ORDER BY matchScore DESC, avgProficiency DESC, c.KinhNghiem DESC
+        LIMIT $limit
+      `;
+      
+      const result = await session.run(query, { 
+        jobId, 
+        limit: neo4j.int(limit) 
+      });
+      
+      return result.records.map(record => ({
+        candidateId: record.get('candidateId'),
+        name: record.get('name'),
+        email: record.get('email'),
+        phone: record.get('phone'),
+        experience: record.get('experience'),
+        education: record.get('education'),
+        matchScore: record.get('matchScore'),
+        matchingSkills: record.get('matchingSkills').toNumber(),
+        totalRequired: record.get('totalRequired').toNumber(),
+        matchedSkillNames: record.get('matchedSkillNames'),
+        avgProficiency: record.get('avgProficiency'),
+        avgYearsUsed: record.get('avgYearsUsed'),
+        hasApplied: record.get('hasApplied')
+      }));
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
+   * Phân tích skills của candidate (theo schema mới)
+   */
+  async analyzeSkills(candidateId) {
+    const session = driver().session();
+    try {
+      // Get current skills
+      const currentSkillsQuery = `
+        MATCH (c:Candidate {MaUV: $candidateId})-[hs:HAS_SKILL]->(s:Skill)
+        RETURN s.TenKyNang as skill, 
+               s.MucDo as skillLevel,
+               hs.Level as level, 
+               hs.YearsExperience as years
+        ORDER BY hs.YearsExperience DESC
+      `;
+      
+      const currentSkillsResult = await session.run(currentSkillsQuery, { candidateId });
+      const currentSkills = currentSkillsResult.records.map(r => ({
+        skill: r.get('skill'),
+        level: r.get('level') || r.get('skillLevel'),
+        years: r.get('years')
+      }));
+
+      // Get recommended skills (skills xuất hiện nhiều trong jobs nhưng candidate chưa có)
+      const recommendedSkillsQuery = `
+        MATCH (c:Candidate {MaUV: $candidateId})-[:HAS_SKILL]->(mySkills:Skill)
+        MATCH (j:JobPost)-[:REQUIRES_SKILL]->(mySkills)
+        WHERE j.TrangThai = 'active'
+        MATCH (j)-[:REQUIRES_SKILL]->(recommendedSkill:Skill)
+        WHERE NOT (c)-[:HAS_SKILL]->(recommendedSkill)
+        WITH recommendedSkill, COUNT(DISTINCT j) as jobCount
+        RETURN recommendedSkill.TenKyNang as skill, 
+               recommendedSkill.MucDo as level,
+               jobCount
+        ORDER BY jobCount DESC
+        LIMIT 10
+      `;
+      
+      const recommendedSkillsResult = await session.run(recommendedSkillsQuery, { candidateId });
+      const recommendedSkills = recommendedSkillsResult.records.map(r => ({
+        skill: r.get('skill'),
+        level: r.get('level'),
+        demandInJobs: r.get('jobCount').toNumber()
+      }));
+
+      // Get skill gaps (skills required ở level cao hơn)
+      const skillGapsQuery = `
+        MATCH (c:Candidate {MaUV: $candidateId})-[hs:HAS_SKILL]->(s:Skill)
+        MATCH (j:JobPost)-[rs:REQUIRES_SKILL]->(s)
+        WHERE j.TrangThai = 'active'
+          AND rs.LevelRequired > hs.Level
+        WITH s.TenKyNang as skill, 
+             hs.Level as currentLevel,
+             rs.LevelRequired as requiredLevel,
+             COUNT(DISTINCT j) as jobCount
+        RETURN skill, currentLevel, requiredLevel, jobCount
+        ORDER BY jobCount DESC
+        LIMIT 5
+      `;
+      
+      const skillGapsResult = await session.run(skillGapsQuery, { candidateId });
+      const skillGaps = skillGapsResult.records.map(r => ({
+        skill: r.get('skill'),
+        currentLevel: r.get('currentLevel'),
+        requiredLevel: r.get('requiredLevel'),
+        jobsRequiring: r.get('jobCount').toNumber()
+      }));
+
+      return {
+        currentSkills,
+        recommendedSkills,
+        skillGaps,
+        totalSkills: currentSkills.length
+      };
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
+   * Tìm jobs tương tự (theo schema mới)
+   */
+  async findSimilarJobs(jobId, limit = 5) {
+    const session = driver().session();
+    try {
+      const query = `
+        // Tìm jobs có chung skills
+        MATCH (j1:JobPost {MaBTD: $jobId})-[:REQUIRES_SKILL]->(s:Skill)<-[:REQUIRES_SKILL]-(j2:JobPost)
+        WHERE j1 <> j2 AND j2.TrangThai = 'active'
+        
+        WITH j2, COUNT(DISTINCT s) as commonSkills, COLLECT(DISTINCT s.TenKyNang) as skills
+        
+        // Lấy thông tin employer, position, location
+        OPTIONAL MATCH (e:Employer)-[:POSTED]->(j2)
+        OPTIONAL MATCH (j2)-[:FOR_POSITION]->(pos:Position)
+        OPTIONAL MATCH (j2)-[:LOCATED_AT]->(loc:Location)
+        
+        RETURN j2.MaBTD as jobId,
+               j2.TieuDe as title,
+               j2.MucLuong as salary,
+               e.TenCongTy as companyName,
+               pos.CapBac as level,
+               loc.TenDiaDiem as location,
+               commonSkills,
+               skills
+        ORDER BY commonSkills DESC, j2.NgayDang DESC
+        LIMIT $limit
+      `;
+      
+      const result = await session.run(query, { 
+        jobId, 
+        limit: neo4j.int(limit) 
+      });
+      
+      return result.records.map(record => ({
+        jobId: record.get('jobId'),
+        title: record.get('title'),
+        salary: record.get('salary'),
+        companyName: record.get('companyName'),
+        level: record.get('level'),
+        location: record.get('location'),
+        commonSkills: record.get('commonSkills').toNumber(),
+        skills: record.get('skills')
+      }));
+    } finally {
+      await session.close();
+    }
+  }
+
+  // ==================== UTILITY OPERATIONS ====================
+  
+  /**
+   * Xóa tất cả data (dùng cho testing)
+   */
+  async clearAllData() {
+    const session = driver().session();
+    try {
+      await session.run('MATCH (n) DETACH DELETE n');
+      return { success: true, message: 'All data cleared' };
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
+   * Lấy thống kê database (theo schema mới)
+   */
+  async getStats() {
+    const session = driver().session();
+    try {
+      const query = `
+        MATCH (a:Account) WITH COUNT(a) as accounts
+        MATCH (c:Candidate) WITH accounts, COUNT(c) as candidates
+        MATCH (e:Employer) WITH accounts, candidates, COUNT(e) as employers
+        MATCH (j:JobPost) WITH accounts, candidates, employers, COUNT(j) as jobs
+        MATCH (s:Skill) WITH accounts, candidates, employers, jobs, COUNT(s) as skills
+        MATCH (app:Application) WITH accounts, candidates, employers, jobs, skills, COUNT(app) as applications
+        MATCH (pos:Position) WITH accounts, candidates, employers, jobs, skills, applications, COUNT(pos) as positions
+        MATCH (loc:Location) WITH accounts, candidates, employers, jobs, skills, applications, positions, COUNT(loc) as locations
+        MATCH (st:Status) WITH accounts, candidates, employers, jobs, skills, applications, positions, locations, COUNT(st) as statuses
+        
+        MATCH ()-[r:HAS_SKILL]->() 
+        WITH accounts, candidates, employers, jobs, skills, applications, positions, locations, statuses, COUNT(r) as candidateSkills
+        
+        MATCH ()-[r2:REQUIRES_SKILL]->() 
+        WITH accounts, candidates, employers, jobs, skills, applications, positions, locations, statuses, candidateSkills, COUNT(r2) as jobRequirements
+        
+        MATCH ()-[r3:SUBMITTED]->() 
+        WITH accounts, candidates, employers, jobs, skills, applications, positions, locations, statuses, candidateSkills, jobRequirements, COUNT(r3) as submissions
+        
+        MATCH ()-[r4:POSTED]->() 
+        WITH accounts, candidates, employers, jobs, skills, applications, positions, locations, statuses, candidateSkills, jobRequirements, submissions, COUNT(r4) as posts
+        
+        MATCH ()-[r5:VIEWED]->() 
+        WITH accounts, candidates, employers, jobs, skills, applications, positions, locations, statuses, candidateSkills, jobRequirements, submissions, posts, COUNT(r5) as views
+        
+        RETURN accounts, candidates, employers, jobs, skills, applications, positions, locations, statuses,
+               candidateSkills, jobRequirements, submissions, posts, views
+      `;
+      
+      const result = await session.run(query);
+      
+      if (!result.records || result.records.length === 0) {
+        return {
+          nodes: {},
+          relationships: {},
+          total: { nodes: 0, relationships: 0 }
+        };
+      }
+      
+      const record = result.records[0];
+      
+      return {
+        nodes: {
+          accounts: record.get('accounts').toNumber(),
+          candidates: record.get('candidates').toNumber(),
+          employers: record.get('employers').toNumber(),
+          jobs: record.get('jobs').toNumber(),
+          skills: record.get('skills').toNumber(),
+          applications: record.get('applications').toNumber(),
+          positions: record.get('positions').toNumber(),
+          locations: record.get('locations').toNumber(),
+          statuses: record.get('statuses').toNumber()
+        },
+        relationships: {
+          candidateSkills: record.get('candidateSkills').toNumber(),
+          jobRequirements: record.get('jobRequirements').toNumber(),
+          submissions: record.get('submissions').toNumber(),
+          posts: record.get('posts').toNumber(),
+          views: record.get('views').toNumber()
+        },
+        total: {
+          nodes: record.get('accounts').toNumber() + 
+                 record.get('candidates').toNumber() + 
+                 record.get('employers').toNumber() + 
+                 record.get('jobs').toNumber() + 
+                 record.get('skills').toNumber() + 
+                 record.get('applications').toNumber() + 
+                 record.get('positions').toNumber() + 
+                 record.get('locations').toNumber() + 
+                 record.get('statuses').toNumber(),
+          relationships: record.get('candidateSkills').toNumber() + 
+                        record.get('jobRequirements').toNumber() + 
+                        record.get('submissions').toNumber() + 
+                        record.get('posts').toNumber() + 
+                        record.get('views').toNumber()
+        }
+      };
+    } finally {
+      await session.close();
+    }
+  }
+}
+
+export default new Neo4jService();

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { 
   BuildingOfficeIcon,
   EnvelopeIcon,
@@ -10,7 +10,8 @@ import {
   BriefcaseIcon,
   PencilIcon,
   CheckIcon,
-  XMarkIcon
+  XMarkIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 import { employerService } from '../../services/employerService';
 import { toast } from 'react-toastify';
@@ -114,6 +115,15 @@ const CompanyProfilePage = () => {
   return (
     <div className="bg-gradient-to-br from-blue-50 via-white to-purple-50 min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
+        {/* Back Button */}
+        <Link
+          to="/employer/dashboard"
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+        >
+          <ArrowLeftIcon className="h-5 w-5" />
+          Quay lại Dashboard
+        </Link>
+
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">

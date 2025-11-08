@@ -186,6 +186,25 @@ export const register = async (req, res) => {
 
     console.log('Account created successfully:', account._id);
 
+    // Sync to Neo4j (xử lý lỗi riêng để không ảnh hưởng đến registration)
+    try {
+      const neo4jService = (await import('../services/neo4jService.js')).default;
+      
+      // Sync account và profile
+      if (type === 'candidate') {
+        const candidate = await Candidate.findById(profileId.candidateId);
+        await neo4jService.createOrUpdateCandidate(candidate.toObject());
+        console.log('✅ [Neo4j] Synced new candidate:', candidate._id);
+      } else if (type === 'employer') {
+        const employer = await Employer.findById(profileId.employerId);
+        await neo4jService.createOrUpdateEmployer(employer.toObject());
+        console.log('✅ [Neo4j] Synced new employer:', employer._id);
+      }
+    } catch (neo4jError) {
+      console.error('⚠️ [Neo4j] Failed to sync new account:', neo4jError.message);
+      // Không throw error để không ảnh hưởng đến việc tạo account
+    }
+
     // Gửi email thông báo (xử lý lỗi riêng)
     try {
       const emailContent = `

@@ -6,6 +6,7 @@ import { Server } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
 import connectDB from "./config/db.js";
+import { testConnection as testNeo4j } from "./config/neo4j.js";
 import { socketHandler } from "./socket/socketHandler.js";
 
 // Routes
@@ -15,6 +16,7 @@ import employerRoutes from "./routes/employerRoutes.js";
 import jobPostRoutes from "./routes/jobPostRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import comparisonRoutes from "./routes/comparisonRoutes.js";
 
 // Middlewares
 import { verifyToken } from "./middlewares/auth.js";
@@ -22,8 +24,9 @@ import { verifyToken } from "./middlewares/auth.js";
 dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Kết nối database
+// Kết nối databases
 connectDB();
+testNeo4j();
 
 // Tạo app
 const app = express();
@@ -46,6 +49,7 @@ app.use('/api/candidates', verifyToken, candidateRoutes);
 app.use('/api/employers', employerRoutes); // Public endpoints included
 app.use('/api/jobs', jobPostRoutes); // Một số endpoint không cần auth
 app.use('/api/applications', verifyToken, applicationRoutes);
+app.use('/api/comparison', comparisonRoutes); // MongoDB vs Neo4j Comparison
 
 // Health check route
 app.get("/api/health", (req, res) => {
