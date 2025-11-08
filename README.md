@@ -147,6 +147,21 @@ JobLink/
 
 ## 🚀 Cài đặt và Chạy Project
 
+### 📋 Dành cho người Clone Project
+
+**Nếu bạn clone project này và đã có MongoDB với dữ liệu:**
+
+1. ✅ Clone repo và cài đặt dependencies (xem bên dưới)
+2. ✅ Cấu hình file `.env` với MongoDB URI của bạn
+3. ⚠️ **QUAN TRỌNG:** Nếu muốn dùng chức năng AI matching với Neo4j:
+   - Cài đặt Neo4j (xem mục 3️⃣)
+   - Chạy `node src/scripts/initNeo4j.js`
+   - **BẮT BUỘC chạy:** `node src/scripts/syncToNeo4j.js` để sync data từ MongoDB sang Neo4j
+   
+4. ℹ️ Nếu không dùng Neo4j: Hệ thống vẫn hoạt động bình thường, chỉ thiếu tính năng AI matching
+
+---
+
 ### 1️⃣ Yêu cầu hệ thống
 
 - Node.js >= 16.x
@@ -226,16 +241,32 @@ CLIENT_URL=http://localhost:5173
 ```
 
 **Khởi tạo Database:**
+
+⚠️ **LƯU Ý QUAN TRỌNG:** Dữ liệu KHÔNG tự động sync giữa MongoDB và Neo4j!
+
 ```bash
 # 1. Seed dữ liệu mẫu vào MongoDB
 node src/scripts/seedData.js
 
-# 2. Nếu dùng Neo4j, init constraints
+# 2. (Optional) Nếu dùng Neo4j cho chức năng AI matching:
+# 2a. Init constraints trong Neo4j
 node src/scripts/initNeo4j.js
 
-# 3. Sync data từ MongoDB sang Neo4j
+# 2b. Sync data từ MongoDB sang Neo4j (BẮT BUỘC nếu dùng Neo4j)
 node src/scripts/syncToNeo4j.js
 ```
+
+**📌 Khi nào cần chạy sync lại?**
+- Khi clone project lần đầu và đã có data trong MongoDB
+- Khi thêm/sửa nhiều dữ liệu trong MongoDB
+- Khi muốn cập nhật data trong Neo4j
+
+**🔄 Auto-sync:** Hệ thống tự động sync khi:
+- Tạo job post mới
+- Tạo candidate mới
+- Cập nhật skills
+
+Nhưng nếu bạn import data trực tiếp vào MongoDB, cần chạy `syncToNeo4j.js` thủ công!
 
 **Chạy server:**
 ```bash
