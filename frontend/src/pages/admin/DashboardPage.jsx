@@ -1,117 +1,25 @@
-import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { 
+import {
   UserGroupIcon,
   BriefcaseIcon,
   BuildingOfficeIcon,
   ChartBarIcon,
   EyeIcon,
   CheckCircleIcon,
-  XCircleIcon,
   ClockIcon,
-  ArrowTrendingUpIcon,
   UsersIcon,
   DocumentTextIcon
 } from '@heroicons/react/24/outline';
+import { useAdminStatistics, useDashboardData } from '../../hooks/useAdminData';
+import AdminLayout from '../../components/admin/AdminLayout';
 
 const AdminDashboardPage = () => {
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalCandidates: 0,
-    totalEmployers: 0,
-    totalJobs: 0,
-    activeJobs: 0,
-    totalApplications: 0,
-    pendingApplications: 0,
-    totalViews: 0
-  });
-  const [recentJobs, setRecentJobs] = useState([]);
-  const [recentApplications, setRecentApplications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Use custom hooks to fetch data from API
+  const { stats, loading: statsLoading, error: statsError, refresh: refreshStats } = useAdminStatistics();
+  const { recentJobs, recentApplications, loading: dashboardLoading, error: dashboardError } = useDashboardData();
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      
-      // Mock data - sẽ thay thế bằng API calls thực tế
-      setStats({
-        totalUsers: 1250,
-        totalCandidates: 1000,
-        totalEmployers: 180,
-        totalJobs: 450,
-        activeJobs: 320,
-        totalApplications: 2500,
-        pendingApplications: 150,
-        totalViews: 15000
-      });
-
-      setRecentJobs([
-        {
-          _id: '1',
-          title: 'Senior Frontend Developer',
-          companyName: 'TechCorp Vietnam',
-          status: 'open',
-          applicationsCount: 25,
-          views: 150,
-          datePosted: new Date().toISOString()
-        },
-        {
-          _id: '2',
-          title: 'Backend Developer (Node.js)',
-          companyName: 'StartupXYZ',
-          status: 'open',
-          applicationsCount: 18,
-          views: 120,
-          datePosted: new Date().toISOString()
-        },
-        {
-          _id: '3',
-          title: 'UI/UX Designer',
-          companyName: 'Design Studio',
-          status: 'closed',
-          applicationsCount: 32,
-          views: 200,
-          datePosted: new Date().toISOString()
-        }
-      ]);
-
-      setRecentApplications([
-        {
-          _id: '1',
-          candidateName: 'Nguyễn Văn A',
-          jobTitle: 'Senior Frontend Developer',
-          companyName: 'TechCorp Vietnam',
-          status: 'Submitted',
-          submitDate: new Date().toISOString()
-        },
-        {
-          _id: '2',
-          candidateName: 'Trần Thị B',
-          jobTitle: 'Backend Developer',
-          companyName: 'StartupXYZ',
-          status: 'Reviewed',
-          submitDate: new Date().toISOString()
-        },
-        {
-          _id: '3',
-          candidateName: 'Lê Văn C',
-          jobTitle: 'UI/UX Designer',
-          companyName: 'Design Studio',
-          status: 'Interviewed',
-          submitDate: new Date().toISOString()
-        }
-      ]);
-
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = statsLoading || dashboardLoading;
+  const error = statsError || dashboardError;
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('vi-VN');
@@ -161,18 +69,41 @@ const AdminDashboardPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner mx-auto mb-4"></div>
-          <p className="text-gray-600">Đang tải dashboard...</p>
+      <AdminLayout>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="spinner mx-auto mb-4"></div>
+            <p className="text-gray-600">Đang tải dashboard...</p>
+          </div>
         </div>
-      </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="text-red-600 mb-4">
+              <p className="text-lg font-semibold">Lỗi tải dữ liệu</p>
+              <p className="text-sm">{error}</p>
+            </div>
+            <button
+              onClick={refreshStats}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              Thử lại
+            </button>
+          </div>
+        </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <AdminLayout>
+      <div>
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
@@ -188,7 +119,7 @@ const AdminDashboardPage = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Tổng người dùng</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.totalUsers.toLocaleString()}</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats?.totalUsers?.toLocaleString() || 0}</p>
               </div>
             </div>
           </div>
@@ -200,7 +131,7 @@ const AdminDashboardPage = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Ứng viên</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.totalCandidates.toLocaleString()}</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats?.totalCandidates?.toLocaleString() || 0}</p>
               </div>
             </div>
           </div>
@@ -212,7 +143,7 @@ const AdminDashboardPage = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Nhà tuyển dụng</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.totalEmployers}</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats?.totalEmployers || 0}</p>
               </div>
             </div>
           </div>
@@ -224,7 +155,7 @@ const AdminDashboardPage = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Việc làm</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.totalJobs}</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats?.totalJobs || 0}</p>
               </div>
             </div>
           </div>
@@ -236,7 +167,7 @@ const AdminDashboardPage = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Việc làm đang tuyển</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.activeJobs}</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats?.activeJobs || 0}</p>
               </div>
             </div>
           </div>
@@ -248,7 +179,7 @@ const AdminDashboardPage = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Đơn ứng tuyển</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.totalApplications.toLocaleString()}</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats?.totalApplications?.toLocaleString() || 0}</p>
               </div>
             </div>
           </div>
@@ -260,7 +191,7 @@ const AdminDashboardPage = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Chờ xem xét</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.pendingApplications}</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats?.pendingApplications || 0}</p>
               </div>
             </div>
           </div>
@@ -272,7 +203,7 @@ const AdminDashboardPage = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Tổng lượt xem</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.totalViews.toLocaleString()}</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats?.totalViews?.toLocaleString() || 0}</p>
               </div>
             </div>
           </div>
@@ -294,7 +225,7 @@ const AdminDashboardPage = () => {
             </div>
             <div className="p-6">
               <div className="space-y-4">
-                {recentJobs.map((job) => (
+                {recentJobs && recentJobs.length > 0 ? recentJobs.map((job) => (
                   <div key={job._id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors duration-200">
                     <div className="flex-1">
                       <h3 className="font-medium text-gray-900">{job.title}</h3>
@@ -316,7 +247,9 @@ const AdminDashboardPage = () => {
                       </Link>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-center text-gray-500 py-4">Không có việc làm gần đây</p>
+                )}
               </div>
             </div>
           </div>
@@ -336,7 +269,7 @@ const AdminDashboardPage = () => {
             </div>
             <div className="p-6">
               <div className="space-y-4">
-                {recentApplications.map((application) => (
+                {recentApplications && recentApplications.length > 0 ? recentApplications.map((application) => (
                   <div key={application._id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors duration-200">
                     <div className="flex-1">
                       <h3 className="font-medium text-gray-900">{application.candidateName}</h3>
@@ -355,7 +288,9 @@ const AdminDashboardPage = () => {
                       </Link>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-center text-gray-500 py-4">Không có đơn ứng tuyển mới</p>
+                )}
               </div>
             </div>
           </div>
@@ -419,7 +354,7 @@ const AdminDashboardPage = () => {
           </div>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 };
 

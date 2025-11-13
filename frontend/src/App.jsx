@@ -50,6 +50,15 @@ import EmployerStatisticsPage from "./pages/employer/StatisticsPage";
 
 // Admin pages
 import AdminDashboardPage from "./pages/admin/DashboardPage";
+import AdminUsersPage from "./pages/admin/UsersPage";
+import AdminUserDetailPage from "./pages/admin/UserDetailPage";
+import AdminJobsPage from "./pages/admin/JobsPage";
+import AdminJobDetailPage from "./pages/admin/JobDetailPage";
+import AdminCompaniesPage from "./pages/admin/CompaniesPage";
+import AdminCompanyDetailPage from "./pages/admin/CompanyDetailPage";
+import AdminApplicationsPage from "./pages/admin/ApplicationsPage";
+import AdminApplicationDetailPage from "./pages/admin/ApplicationDetailPage";
+import AdminReportsPage from "./pages/admin/ReportsPage";
 
 function App() {
   return (
@@ -375,16 +384,17 @@ function App() {
               </>
             } />
 
-            {/* Admin routes */}
-            <Route path="/admin/dashboard" element={
-              <>
-                <Navbar />
-                <main className="flex-1">
-                  <AdminDashboardPage />
-                </main>
-                <Footer />
-              </>
-            } />
+            {/* Admin routes - no Navbar/Footer, AdminLayout handles it */}
+            <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
+            <Route path="/admin/users/:id" element={<AdminUserDetailPage />} />
+            <Route path="/admin/jobs" element={<AdminJobsPage />} />
+            <Route path="/admin/jobs/:id" element={<AdminJobDetailPage />} />
+            <Route path="/admin/companies" element={<AdminCompaniesPage />} />
+            <Route path="/admin/companies/:id" element={<AdminCompanyDetailPage />} />
+            <Route path="/admin/applications" element={<AdminApplicationsPage />} />
+            <Route path="/admin/applications/:id" element={<AdminApplicationDetailPage />} />
+            <Route path="/admin/reports" element={<AdminReportsPage />} />
 
             {/* Fallback route */}
             <Route path="*" element={

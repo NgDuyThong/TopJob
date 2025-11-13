@@ -54,6 +54,14 @@ import EmployerJobEditPage from '../pages/employer/JobEditPage';
 
 // Admin pages
 import AdminDashboardPage from '../pages/admin/DashboardPage';
+import AdminUsersPage from '../pages/admin/UsersPage';
+import AdminJobsPage from '../pages/admin/JobsPage';
+import AdminCompaniesPage from '../pages/admin/CompaniesPage';
+import AdminJobDetailPage from '../pages/admin/JobDetailPage';
+import AdminCompanyDetailPage from '../pages/admin/CompanyDetailPage';
+import AdminApplicationsPage from '../pages/admin/ApplicationsPage';
+import AdminApplicationDetailPage from '../pages/admin/ApplicationDetailPage';
+import AdminReportsPage from '../pages/admin/ReportsPage';
 
 // Redux actions
 import { validateToken } from '../store/slices/authSlice';
@@ -120,6 +128,14 @@ const AppRoutesContent = () => {
         {/* Admin Routes */}
         <Route element={<AdminRoutes />}>
           <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+          <Route path="/admin/users" element={<AdminUsersPage />} />
+          <Route path="/admin/jobs" element={<AdminJobsPage />} />
+          <Route path="/admin/jobs/:id" element={<AdminJobDetailPage />} />
+          <Route path="/admin/companies" element={<AdminCompaniesPage />} />
+          <Route path="/admin/companies/:id" element={<AdminCompanyDetailPage />} />
+          <Route path="/admin/applications" element={<AdminApplicationsPage />} />
+          <Route path="/admin/applications/:id" element={<AdminApplicationDetailPage />} />
+          <Route path="/admin/reports" element={<AdminReportsPage />} />
         </Route>
 
         {/* Fallback route */}

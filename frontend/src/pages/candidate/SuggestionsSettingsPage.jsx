@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { 
+import {
   AdjustmentsHorizontalIcon,
   MapPinIcon,
   CurrencyDollarIcon,
@@ -119,14 +119,12 @@ const SuggestionsSettingsPage = () => {
               <button
                 type="button"
                 onClick={() => setSettings({ ...settings, receiveRecommendations: !settings.receiveRecommendations })}
-                className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
-                  settings.receiveRecommendations ? 'bg-gradient-to-r from-orange-600 to-amber-600' : 'bg-gray-300'
-                }`}
+                className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${settings.receiveRecommendations ? 'bg-gradient-to-r from-orange-600 to-amber-600' : 'bg-gray-300'
+                  }`}
               >
                 <span
-                  className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                    settings.receiveRecommendations ? 'translate-x-7' : 'translate-x-1'
-                  }`}
+                  className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${settings.receiveRecommendations ? 'translate-x-7' : 'translate-x-1'
+                    }`}
                 />
               </button>
             </div>
@@ -146,7 +144,7 @@ const SuggestionsSettingsPage = () => {
             <div className="p-6">
               <div className="flex flex-wrap gap-2 mb-4">
                 {settings.preferredLocations.map((location) => (
-                  <span 
+                  <span
                     key={location}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-100 to-amber-100 text-orange-700 rounded-full font-medium"
                   >
@@ -197,8 +195,8 @@ const SuggestionsSettingsPage = () => {
                   <input
                     type="number"
                     value={settings.salaryRange.min}
-                    onChange={(e) => setSettings({ 
-                      ...settings, 
+                    onChange={(e) => setSettings({
+                      ...settings,
                       salaryRange: { ...settings.salaryRange, min: parseInt(e.target.value) || 0 }
                     })}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -209,8 +207,8 @@ const SuggestionsSettingsPage = () => {
                   <input
                     type="number"
                     value={settings.salaryRange.max}
-                    onChange={(e) => setSettings({ 
-                      ...settings, 
+                    onChange={(e) => setSettings({
+                      ...settings,
                       salaryRange: { ...settings.salaryRange, max: parseInt(e.target.value) || 0 }
                     })}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -242,16 +240,14 @@ const SuggestionsSettingsPage = () => {
                   <button
                     key={type}
                     onClick={() => toggleArrayItem('jobTypes', type)}
-                    className={`p-4 rounded-xl border-2 transition-all ${
-                      settings.jobTypes.includes(type)
-                        ? 'border-blue-600 bg-blue-50 shadow-lg'
-                        : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-                    }`}
+                    className={`p-4 rounded-xl border-2 transition-all ${settings.jobTypes.includes(type)
+                      ? 'border-blue-600 bg-blue-50 shadow-lg'
+                      : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                      }`}
                   >
                     <div className="text-center">
-                      <div className={`font-semibold ${
-                        settings.jobTypes.includes(type) ? 'text-blue-700' : 'text-gray-700'
-                      }`}>
+                      <div className={`font-semibold ${settings.jobTypes.includes(type) ? 'text-blue-700' : 'text-gray-700'
+                        }`}>
                         {type}
                       </div>
                       {settings.jobTypes.includes(type) && (
@@ -281,16 +277,14 @@ const SuggestionsSettingsPage = () => {
                   <button
                     key={level}
                     onClick={() => toggleArrayItem('experienceLevels', level)}
-                    className={`p-4 rounded-xl border-2 transition-all ${
-                      settings.experienceLevels.includes(level)
-                        ? 'border-purple-600 bg-purple-50 shadow-lg'
-                        : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
-                    }`}
+                    className={`p-4 rounded-xl border-2 transition-all ${settings.experienceLevels.includes(level)
+                      ? 'border-purple-600 bg-purple-50 shadow-lg'
+                      : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
+                      }`}
                   >
                     <div className="text-center">
-                      <div className={`font-semibold text-sm ${
-                        settings.experienceLevels.includes(level) ? 'text-purple-700' : 'text-gray-700'
-                      }`}>
+                      <div className={`font-semibold text-sm ${settings.experienceLevels.includes(level) ? 'text-purple-700' : 'text-gray-700'
+                        }`}>
                         {level}
                       </div>
                       {settings.experienceLevels.includes(level) && (
@@ -320,16 +314,14 @@ const SuggestionsSettingsPage = () => {
                   <button
                     key={type}
                     onClick={() => toggleArrayItem('companyTypes', type)}
-                    className={`p-4 rounded-xl border-2 transition-all ${
-                      settings.companyTypes.includes(type)
-                        ? 'border-indigo-600 bg-indigo-50 shadow-lg'
-                        : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
-                    }`}
+                    className={`p-4 rounded-xl border-2 transition-all ${settings.companyTypes.includes(type)
+                      ? 'border-indigo-600 bg-indigo-50 shadow-lg'
+                      : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                      }`}
                   >
                     <div className="text-center">
-                      <div className={`font-semibold ${
-                        settings.companyTypes.includes(type) ? 'text-indigo-700' : 'text-gray-700'
-                      }`}>
+                      <div className={`font-semibold ${settings.companyTypes.includes(type) ? 'text-indigo-700' : 'text-gray-700'
+                        }`}>
                         {type}
                       </div>
                       {settings.companyTypes.includes(type) && (
@@ -359,16 +351,14 @@ const SuggestionsSettingsPage = () => {
                   <button
                     key={industry}
                     onClick={() => toggleArrayItem('industries', industry)}
-                    className={`p-4 rounded-xl border-2 transition-all ${
-                      settings.industries.includes(industry)
-                        ? 'border-teal-600 bg-teal-50 shadow-lg'
-                        : 'border-gray-200 hover:border-teal-300 hover:bg-gray-50'
-                    }`}
+                    className={`p-4 rounded-xl border-2 transition-all ${settings.industries.includes(industry)
+                      ? 'border-teal-600 bg-teal-50 shadow-lg'
+                      : 'border-gray-200 hover:border-teal-300 hover:bg-gray-50'
+                      }`}
                   >
                     <div className="text-center">
-                      <div className={`font-semibold text-sm ${
-                        settings.industries.includes(industry) ? 'text-teal-700' : 'text-gray-700'
-                      }`}>
+                      <div className={`font-semibold text-sm ${settings.industries.includes(industry) ? 'text-teal-700' : 'text-gray-700'
+                        }`}>
                         {industry}
                       </div>
                       {settings.industries.includes(industry) && (
@@ -395,7 +385,7 @@ const SuggestionsSettingsPage = () => {
             <div className="p-6">
               <div className="flex flex-wrap gap-2 mb-4">
                 {settings.skills.map((skill) => (
-                  <span 
+                  <span
                     key={skill}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-rose-100 to-pink-100 text-rose-700 rounded-full font-medium"
                   >
