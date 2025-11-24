@@ -32,9 +32,23 @@ export const authService = {
       return response.data;
     } catch (error) {
       console.error('Error registering:', error);
-      // Lấy message từ response nếu có
-      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi đăng ký';
-      throw new Error(errorMessage);
+      
+      // Lấy thông tin lỗi chi tiết từ response
+      const errorData = error.response?.data;
+      
+      if (errorData) {
+        // Nếu có danh sách lỗi chi tiết (từ password validator)
+        if (errorData.errors && Array.isArray(errorData.errors)) {
+          const customError = new Error(errorData.message || 'Mật khẩu không đáp ứng yêu cầu');
+          customError.errors = errorData.errors; // Gắn danh sách lỗi vào error object
+          throw customError;
+        }
+        
+        // Nếu chỉ có message thông thường
+        throw new Error(errorData.message || 'Có lỗi xảy ra khi đăng ký');
+      }
+      
+      throw new Error(error.message || 'Có lỗi xảy ra khi đăng ký');
     }
   },
 
@@ -69,6 +83,31 @@ export const authService = {
     } catch (error) {
       console.error('Error validating token:', error);
       return false;
+    }
+  },
+
+  // Quên mật khẩu
+  forgotPassword: async (email) => {
+    try {
+      const response = await api.post('/auth/forgot-password', { email });
+      return response.data;
+    } catch (error) {
+      console.error('Error requesting password reset:', error);
+      throw error;
+    }
+  },
+
+  // Đặt lại mật khẩu
+  resetPassword: async (token, newPassword) => {
+    try {
+      const response = await api.post('/auth/reset-password', { 
+        token, 
+        newPassword 
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      throw error;
     }
   }
 };

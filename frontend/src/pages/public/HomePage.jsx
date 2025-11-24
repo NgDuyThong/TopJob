@@ -391,7 +391,7 @@ const HomePage = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 bg-gradient-to-r from-purple-600 to-purple-700 text-white">
+      <section className="py-16 bg-gradient-to-r from-purple-600 to-purple-700 text-white overflow-hidden">
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold mb-4">Sẵn sàng tìm việc làm mơ ước?</h2>
           <p className="text-xl text-purple-100 mb-8">
@@ -413,6 +413,9 @@ const HomePage = () => {
           </div>
         </div>
       </section>
+
+      {/* Separator to prevent diagonal line */}
+      <div className="h-1 bg-gray-900"></div>
     </div>
   );
 };

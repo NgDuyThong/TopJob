@@ -399,58 +399,92 @@ class Neo4jService {
     const session = driver().session();
     try {
       const query = `
+        // Bước 1: Tìm skills của candidate
+        MATCH (c:Candidate {MaUV: $candidateId})
+        
+        // Kiểm tra candidate có tồn tại không
+        WITH c
+        WHERE c IS NOT NULL
+        
         // Tìm skills của candidate
-        MATCH (c:Candidate {MaUV: $candidateId})-[hs:HAS_SKILL]->(s:Skill)
+        MATCH (c)-[hs:HAS_SKILL]->(s:Skill)
         
-        // Tìm jobs yêu cầu những skills đó
+        // Bước 2: Tìm jobs yêu cầu những skills đó
         MATCH (j:JobPost)-[rs:REQUIRES_SKILL]->(s)
-        WHERE j.TrangThai = 'active'
+        WHERE j.TrangThai = 'active' OR j.TrangThai = 'open'
         
-        // Tính toán match score
+        // Bước 3: Tính toán match score cho mỗi job
         WITH j, 
              COUNT(DISTINCT s) as matchingSkills,
              COLLECT(DISTINCT s.TenKyNang) as matchedSkillNames,
-             AVG(CASE hs.Level 
-               WHEN 'Cơ bản' THEN 1 
-               WHEN 'Trung bình' THEN 2 
-               WHEN 'Thành thạo' THEN 3 
-               ELSE 2 END) as avgProficiency
+             COLLECT(DISTINCT hs) as candidateSkillRels
         
-        // Đếm tổng số skills required
+        // Tính average proficiency (xử lý cả tiếng Việt và tiếng Anh)
+        WITH j,
+             matchingSkills,
+             matchedSkillNames,
+             REDUCE(total = 0.0, rel IN candidateSkillRels | 
+               total + CASE 
+                 WHEN rel.Level IN ['Thành thạo', 'advanced', 'Advanced'] THEN 3.0
+                 WHEN rel.Level IN ['Trung bình', 'intermediate', 'Intermediate'] THEN 2.0
+                 WHEN rel.Level IN ['Cơ bản', 'basic', 'Basic'] THEN 1.0
+                 ELSE 2.0
+               END
+             ) / SIZE(candidateSkillRels) as avgProficiency
+        
+        // Bước 4: Đếm tổng số skills required của job
+        WITH j, matchingSkills, matchedSkillNames, avgProficiency
         MATCH (j)-[:REQUIRES_SKILL]->(allSkills:Skill)
         WITH j, 
              matchingSkills, 
              matchedSkillNames,
              avgProficiency,
-             COUNT(DISTINCT allSkills) as totalRequired,
-             (matchingSkills * 1.0 / COUNT(DISTINCT allSkills)) as matchScore
+             COUNT(DISTINCT allSkills) as totalRequired
+        
+        // Tính match score (tỷ lệ skills phù hợp)
+        WITH j,
+             matchingSkills,
+             matchedSkillNames,
+             avgProficiency,
+             totalRequired,
+             toFloat(matchingSkills) / toFloat(totalRequired) as matchScore
+        
+        // Lọc chỉ lấy jobs có match score > 30%
         WHERE matchScore > 0.3
         
-        // Lấy thông tin employer và location
+        // Bước 5: Lấy thông tin bổ sung (employer, location, position)
         OPTIONAL MATCH (e:Employer)-[:POSTED]->(j)
         OPTIONAL MATCH (j)-[:LOCATED_AT]->(loc:Location)
         OPTIONAL MATCH (j)-[:FOR_POSITION]->(pos:Position)
         
+        // Bước 6: Return kết quả
         RETURN j.MaBTD as jobId,
                j.TieuDe as title,
                j.MucLuong as salary,
                j.KinhNghiem as experience,
-               e.TenCongTy as companyName,
-               loc.TenDiaDiem as location,
-               pos.CapBac as level,
+               COALESCE(e.TenCongTy, 'N/A') as companyName,
+               COALESCE(loc.TenDiaDiem, 'N/A') as location,
+               COALESCE(pos.CapBac, 'N/A') as level,
                matchScore,
                matchingSkills,
                totalRequired,
                matchedSkillNames,
                avgProficiency
-        ORDER BY matchScore DESC, avgProficiency DESC, j.NgayDang DESC
+        
+        // Sắp xếp: Ưu tiên match score cao, proficiency cao, job mới
+        ORDER BY matchScore DESC, avgProficiency DESC
         LIMIT $limit
       `;
       
       const result = await session.run(query, { 
-        candidateId, 
+        candidateId: candidateId.toString(), 
         limit: neo4j.int(limit) 
       });
+      
+      // Xử lý kết quả
+      if (!result.records || result.records.length === 0) {
+        return [];
+      }
       
       return result.records.map(record => ({
         jobId: record.get('jobId'),
@@ -466,6 +500,9 @@ class Neo4jService {
         matchedSkillNames: record.get('matchedSkillNames'),
         avgProficiency: record.get('avgProficiency')
       }));
+    } catch (error) {
+      console.error('❌ Error in recommendJobsForCandidate:', error);
+      throw error;
     } finally {
       await session.close();
     }
@@ -478,43 +515,70 @@ class Neo4jService {
     const session = driver().session();
     try {
       const query = `
-        // Tìm skills required của job
-        MATCH (j:JobPost {MaBTD: $jobId})-[rs:REQUIRES_SKILL]->(s:Skill)
+        // Bước 1: Tìm job và skills required
+        MATCH (j:JobPost {MaBTD: $jobId})
+        WHERE j IS NOT NULL
         
-        // Tìm candidates có những skills đó
+        // Tìm skills required của job
+        MATCH (j)-[rs:REQUIRES_SKILL]->(s:Skill)
+        
+        // Bước 2: Tìm candidates có những skills đó
         MATCH (c:Candidate)-[hs:HAS_SKILL]->(s)
         
-        // Tính toán match score
-        WITH c,
+        // Bước 3: Tính toán match score cho mỗi candidate
+        WITH c, j,
              COUNT(DISTINCT s) as matchingSkills,
              COLLECT(DISTINCT s.TenKyNang) as matchedSkillNames,
-             AVG(CASE hs.Level 
-               WHEN 'Cơ bản' THEN 1 
-               WHEN 'Trung bình' THEN 2 
-               WHEN 'Thành thạo' THEN 3 
-               ELSE 2 END) as avgProficiency,
-             AVG(hs.YearsExperience) as avgYearsUsed
+             COLLECT(DISTINCT hs) as candidateSkillRels
         
-        // Đếm tổng số skills required
-        MATCH (j:JobPost {MaBTD: $jobId})-[:REQUIRES_SKILL]->(allSkills:Skill)
-        WITH c,
+        // Tính average proficiency và years experience
+        WITH c, j,
+             matchingSkills,
+             matchedSkillNames,
+             REDUCE(total = 0.0, rel IN candidateSkillRels | 
+               total + CASE 
+                 WHEN rel.Level IN ['Thành thạo', 'advanced', 'Advanced'] THEN 3.0
+                 WHEN rel.Level IN ['Trung bình', 'intermediate', 'Intermediate'] THEN 2.0
+                 WHEN rel.Level IN ['Cơ bản', 'basic', 'Basic'] THEN 1.0
+                 ELSE 2.0
+               END
+             ) / SIZE(candidateSkillRels) as avgProficiency,
+             REDUCE(total = 0.0, rel IN candidateSkillRels | 
+               total + COALESCE(rel.YearsExperience, 1.0)
+             ) / SIZE(candidateSkillRels) as avgYearsUsed
+        
+        // Bước 4: Đếm tổng số skills required của job
+        WITH c, j, matchingSkills, matchedSkillNames, avgProficiency, avgYearsUsed
+        MATCH (j)-[:REQUIRES_SKILL]->(allSkills:Skill)
+        WITH c, j,
              matchingSkills,
              matchedSkillNames,
              avgProficiency,
              avgYearsUsed,
-             COUNT(DISTINCT allSkills) as totalRequired,
-             (matchingSkills * 1.0 / COUNT(DISTINCT allSkills)) as matchScore
+             COUNT(DISTINCT allSkills) as totalRequired
+        
+        // Tính match score
+        WITH c, j,
+             matchingSkills,
+             matchedSkillNames,
+             avgProficiency,
+             avgYearsUsed,
+             totalRequired,
+             toFloat(matchingSkills) / toFloat(totalRequired) as matchScore
+        
+        // Lọc chỉ lấy candidates có match score > 40%
         WHERE matchScore > 0.4
         
-        // Kiểm tra xem candidate đã apply chưa
-        OPTIONAL MATCH (c)-[:SUBMITTED]->(app:Application)-[:APPLIED_TO]->(j:JobPost {MaBTD: $jobId})
+        // Bước 5: Kiểm tra candidate đã apply chưa
+        OPTIONAL MATCH (c)-[:SUBMITTED]->(app:Application)-[:APPLIED_TO]->(j)
         
+        // Bước 6: Return kết quả
         RETURN c.MaUV as candidateId,
-               c.HoTen as name,
-               c.Email as email,
-               c.SDT as phone,
-               c.KinhNghiem as experience,
-               c.HocVan as education,
+               COALESCE(c.HoTen, 'N/A') as name,
+               COALESCE(c.Email, 'N/A') as email,
+               COALESCE(c.SDT, 'N/A') as phone,
+               COALESCE(c.KinhNghiem, 0) as experience,
+               COALESCE(c.HocVan, 'N/A') as education,
                matchScore,
                matchingSkills,
                totalRequired,
@@ -522,14 +586,21 @@ class Neo4jService {
                avgProficiency,
                avgYearsUsed,
                CASE WHEN app IS NOT NULL THEN true ELSE false END as hasApplied
-        ORDER BY matchScore DESC, avgProficiency DESC, c.KinhNghiem DESC
+        
+        // Sắp xếp: Ưu tiên match score cao, proficiency cao, experience nhiều
+        ORDER BY matchScore DESC, avgProficiency DESC, experience DESC
         LIMIT $limit
       `;
       
       const result = await session.run(query, { 
-        jobId, 
+        jobId: jobId.toString(), 
         limit: neo4j.int(limit) 
       });
+      
+      // Xử lý kết quả
+      if (!result.records || result.records.length === 0) {
+        return [];
+      }
       
       return result.records.map(record => ({
         candidateId: record.get('candidateId'),
@@ -546,6 +617,9 @@ class Neo4jService {
         avgYearsUsed: record.get('avgYearsUsed'),
         hasApplied: record.get('hasApplied')
       }));
+    } catch (error) {
+      console.error('❌ Error in findMatchingCandidates:', error);
+      throw error;
     } finally {
       await session.close();
     }

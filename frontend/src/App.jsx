@@ -16,6 +16,8 @@ import CompanySearchPage from "./pages/public/CompanySearchPage";
 import CompanyDetailsPage from "./pages/public/CompanyDetailsPage";
 import LoginPage from "./pages/public/LoginPage";
 import RegisterPage from "./pages/public/RegisterPage";
+import ForgotPasswordPage from "./pages/public/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/public/ResetPasswordPage";
 
 // Candidate pages
 import CandidateProfilePage from "./pages/candidate/ProfilePage";
@@ -120,6 +122,8 @@ function App() {
             {/* Auth pages without navbar and footer */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             
             {/* Candidate routes */}
             <Route path="/candidate/profile" element={

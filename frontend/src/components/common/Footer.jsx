@@ -78,8 +78,9 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="bg-gray-900 text-white">
-      <div className="container-custom py-12">
+    <footer className="bg-gray-900 text-white overflow-hidden relative border-t-4 border-gray-900">
+      <div className="absolute inset-0 bg-gray-900 z-0"></div>
+      <div className="container-custom py-12 relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
           {/* Company Info */}
           <div className="lg:col-span-1">
@@ -105,7 +106,7 @@ const Footer = () => {
               </div>
               <div className="flex items-center space-x-3">
                 <MapPinIcon className="w-4 h-4 text-gray-400" />
-                <span className="text-sm text-gray-400">Hà Nội, Việt Nam</span>
+                <span className="text-sm text-gray-400">Hồ Chí Minh, Việt Nam</span>
               </div>
             </div>
           </div>

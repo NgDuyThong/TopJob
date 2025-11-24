@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
 import { authService } from '../../services/authService';
+import PasswordStrengthIndicator from '../../components/auth/PasswordStrengthIndicator';
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -47,8 +48,8 @@ const RegisterPage = () => {
       return;
     }
 
-    if (formData.password.length < 6) {
-      toast.error('Mật khẩu phải có ít nhất 6 ký tự');
+    if (formData.password.length < 8) {
+      toast.error('Mật khẩu phải có ít nhất 8 ký tự');
       return;
     }
 
@@ -68,7 +69,22 @@ const RegisterPage = () => {
       }
     } catch (error) {
       console.error('Registration error:', error);
-      toast.error(error.message || 'Có lỗi xảy ra khi đăng ký. Vui lòng thử lại.');
+      
+      // Nếu có danh sách lỗi chi tiết từ backend (validation mật khẩu)
+      if (error.errors && Array.isArray(error.errors)) {
+        // Hiển thị từng lỗi cụ thể
+        error.errors.forEach((err, index) => {
+          setTimeout(() => {
+            toast.error(err, {
+              position: "top-right",
+              autoClose: 5000,
+            });
+          }, index * 100); // Delay mỗi thông báo một chút để dễ đọc
+        });
+      } else {
+        // Hiển thị thông báo lỗi chung
+        toast.error(error.message || 'Có lỗi xảy ra khi đăng ký. Vui lòng thử lại.');
+      }
     } finally {
       setLoading(false);
     }
@@ -227,6 +243,11 @@ const RegisterPage = () => {
                   )}
                 </button>
               </div>
+              
+              {/* Password Strength Indicator */}
+              {formData.password && (
+                <PasswordStrengthIndicator password={formData.password} />
+              )}
             </div>
 
             <div>

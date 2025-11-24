@@ -84,12 +84,8 @@ export const register = async (req, res) => {
       });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Mật khẩu phải có ít nhất 6 ký tự'
-      });
-    }
+    // Password validation đã được xử lý bởi middleware passwordValidator
+    // Không cần validate lại ở đây
 
     // Kiểm tra username đã tồn tại
     const existingAccount = await Account.findOne({ username });
@@ -185,6 +181,7 @@ export const register = async (req, res) => {
     await account.save();
 
     console.log('Account created successfully:', account._id);
+    console.log('Password strength:', req.passwordStrengthLevel || 'N/A');
 
     // Sync to Neo4j (xử lý lỗi riêng để không ảnh hưởng đến registration)
     try {
@@ -289,6 +286,158 @@ export const validateToken = async (req, res) => {
     res.status(401).json({
       status: 'error',
       message: 'Token không hợp lệ'
+    });
+  }
+};
+
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Email là bắt buộc'
+      });
+    }
+
+    // Tìm account qua email trong Candidate hoặc Employer
+    let account = null;
+    const candidate = await Candidate.findOne({ email });
+    if (candidate) {
+      account = await Account.findOne({ candidateId: candidate._id });
+    } else {
+      const employer = await Employer.findOne({ email });
+      if (employer) {
+        account = await Account.findOne({ employerId: employer._id });
+      }
+    }
+
+    // Luôn trả về success để tránh leak thông tin
+    if (!account) {
+      return res.json({
+        status: 'success',
+        message: 'Nếu email tồn tại, link reset mật khẩu đã được gửi'
+      });
+    }
+
+    // Tạo reset token
+    const resetToken = jwt.sign(
+      { id: account._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // Lưu token vào database
+    account.resetPasswordToken = resetToken;
+    account.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    await account.save();
+
+    // Gửi email
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    const emailContent = `
+      <h2>Yêu cầu đặt lại mật khẩu</h2>
+      <p>Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản TopJob của mình.</p>
+      <p>Vui lòng click vào link dưới đây để đặt lại mật khẩu:</p>
+      <a href="${resetUrl}" style="display: inline-block; padding: 10px 20px; background-color: #9333ea; color: white; text-decoration: none; border-radius: 5px;">Đặt lại mật khẩu</a>
+      <p>Link này sẽ hết hạn sau 1 giờ.</p>
+      <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
+    `;
+
+    await sendMail(email, 'Đặt lại mật khẩu - TopJob', emailContent);
+
+    res.json({
+      status: 'success',
+      message: 'Nếu email tồn tại, link reset mật khẩu đã được gửi'
+    });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Có lỗi xảy ra khi xử lý yêu cầu'
+    });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Token và mật khẩu mới là bắt buộc'
+      });
+    }
+
+    // Verify token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Token không hợp lệ hoặc đã hết hạn'
+      });
+    }
+
+    // Tìm account
+    const account = await Account.findById(decoded.id);
+    if (!account) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Tài khoản không tồn tại'
+      });
+    }
+
+    // Kiểm tra token có khớp và chưa hết hạn
+    if (account.resetPasswordToken !== token || account.resetPasswordExpires < Date.now()) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Token không hợp lệ hoặc đã hết hạn'
+      });
+    }
+
+    // Cập nhật mật khẩu mới
+    account.password = newPassword;
+    account.resetPasswordToken = undefined;
+    account.resetPasswordExpires = undefined;
+    await account.save();
+
+    // Gửi email thông báo
+    try {
+      let email = '';
+      if (account.candidateId) {
+        const candidate = await Candidate.findById(account.candidateId);
+        email = candidate?.email;
+      } else if (account.employerId) {
+        const employer = await Employer.findById(account.employerId);
+        email = employer?.email;
+      }
+
+      if (email) {
+        const emailContent = `
+          <h2>Mật khẩu đã được đặt lại</h2>
+          <p>Mật khẩu cho tài khoản TopJob của bạn đã được đặt lại thành công.</p>
+          <p>Nếu bạn không thực hiện thay đổi này, vui lòng liên hệ với chúng tôi ngay lập tức.</p>
+        `;
+        await sendMail(email, 'Mật khẩu đã được đặt lại - TopJob', emailContent);
+      }
+    } catch (emailError) {
+      console.error('Failed to send password reset confirmation email:', emailError);
+    }
+
+    res.json({
+      status: 'success',
+      message: 'Đặt lại mật khẩu thành công'
+    });
+
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Có lỗi xảy ra khi đặt lại mật khẩu'
     });
   }
 };
