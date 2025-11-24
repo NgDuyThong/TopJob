@@ -415,51 +415,76 @@ export const searchCandidates = async (req, res) => {
   try {
     const { keyword, education, experience, skills, location } = req.query;
     
-    const filters = {};
+    console.log('🔍 Search filters:', { keyword, education, experience, skills, location });
     
-    // Tìm kiếm theo từ khóa (tên, email)
+    const filters = {};
+    const andConditions = [];
+    
+    // Tìm kiếm theo từ khóa (tên, email, bio)
     if (keyword) {
-      filters.$or = [
-        { name: new RegExp(keyword, 'i') },
-        { email: new RegExp(keyword, 'i') }
-      ];
+      andConditions.push({
+        $or: [
+          { fullName: new RegExp(keyword, 'i') },
+          { email: new RegExp(keyword, 'i') },
+          { bio: new RegExp(keyword, 'i') }
+        ]
+      });
     }
     
     // Lọc theo trình độ học vấn
     if (education) {
-      filters['education.degree'] = new RegExp(education, 'i');
+      andConditions.push({
+        education: new RegExp(education, 'i')
+      });
     }
     
-    // Lọc theo kinh nghiệm (số năm)
+    // Lọc theo kinh nghiệm (tìm trong string experience)
     if (experience) {
-      const years = parseInt(experience);
-      if (!isNaN(years)) {
-        filters['experience.0'] = { $exists: true }; // Có ít nhất 1 kinh nghiệm
-      }
+      andConditions.push({
+        experience: new RegExp(experience, 'i')
+      });
     }
     
     // Lọc theo kỹ năng - skills là array of objects {name, level}
     if (skills) {
       const skillArray = skills.split(',').map(s => s.trim());
-      filters['skills.name'] = { 
-        $in: skillArray.map(skill => new RegExp(skill, 'i'))
-      };
+      andConditions.push({
+        'skills.name': { 
+          $in: skillArray.map(skill => new RegExp(skill, 'i'))
+        }
+      });
     }
     
     // Lọc theo địa điểm
     if (location) {
-      filters.address = new RegExp(location, 'i');
+      andConditions.push({
+        $or: [
+          { address: new RegExp(location, 'i') },
+          { 'location.city': new RegExp(location, 'i') },
+          { 'location.district': new RegExp(location, 'i') }
+        ]
+      });
     }
     
+    // Kết hợp tất cả điều kiện với $and
+    if (andConditions.length > 0) {
+      filters.$and = andConditions;
+    }
+    
+    console.log('📊 MongoDB filters:', JSON.stringify(filters, null, 2));
+    
     const candidates = await Candidate.find(filters)
-      .select('name email phone address education experience skills')
+      .select('fullName email phone address location education experience skills bio')
       .limit(50);
+    
+    console.log(`✅ Found ${candidates.length} candidates`);
     
     res.json({
       status: 'success',
       data: candidates
     });
   } catch (error) {
+    console.error('❌ Search error:', error);
     res.status(500).json({
       status: 'error',
       message: error.message
