@@ -66,7 +66,7 @@ const syncToNeo4j = async () => {
 
     // ==================== SYNC JOBS ====================
     console.log('\n💼 Syncing Jobs...');
-    const jobs = await JobPost.find({ status: 'active' }).populate('employerId');
+    const jobs = await JobPost.find({ status: { $in: ['active', 'open'] } }).populate('employerId');
     let jobCount = 0;
 
     for (const job of jobs) {
@@ -98,13 +98,13 @@ const syncToNeo4j = async () => {
 
     let appCount = 0;
     for (const app of applications) {
-      // Application model có candidateId và jobPostId
-      if (app.candidateId && app.jobPostId) {
+      // Application model có candidateId và jobpostId (chữ thường)
+      if (app.candidateId && app.jobpostId) {
         try {
           await neo4jService.createApplication(
-            app,
-            app.candidateId,
-            app.jobPostId
+            app.toObject(),
+            app.candidateId.toString(),
+            app.jobpostId.toString()
           );
           appCount++;
 

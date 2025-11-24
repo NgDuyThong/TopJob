@@ -329,17 +329,21 @@ class Neo4jService {
           ThuGioiThieu: $thuGioiThieu
         })
         
-        // Link Candidate -> Application
+        // Link Candidate -> Application (nếu candidate tồn tại)
         WITH app
-        MATCH (c:Candidate {MaUV: $candidateId})
-        CREATE (c)-[s:SUBMITTED {SubmitDate: datetime($ngayNop)}]->(app)
+        OPTIONAL MATCH (c:Candidate {MaUV: $candidateId})
+        FOREACH (x IN CASE WHEN c IS NOT NULL THEN [1] ELSE [] END |
+          CREATE (c)-[s:SUBMITTED {SubmitDate: datetime($ngayNop)}]->(app)
+        )
         
-        // Link Application -> JobPost
+        // Link Application -> JobPost (nếu job tồn tại)
         WITH app
-        MATCH (j:JobPost {MaBTD: $jobId})
-        CREATE (app)-[:APPLIED_TO]->(j)
+        OPTIONAL MATCH (j:JobPost {MaBTD: $jobId})
+        FOREACH (x IN CASE WHEN j IS NOT NULL THEN [1] ELSE [] END |
+          CREATE (app)-[:APPLIED_TO]->(j)
+        )
         
-        // Link Application -> Status
+        // Link Application -> Status (luôn tạo)
         WITH app
         MERGE (st:Status {MaTT: $statusId, TenTrangThai: $trangThai})
         CREATE (app)-[:HAS_STATUS]->(st)
@@ -349,13 +353,13 @@ class Neo4jService {
       
       const result = await session.run(query, {
         appId: applicationData._id.toString(),
-        ngayNop: applicationData.appliedAt?.toISOString() || new Date().toISOString(),
-        trangThai: applicationData.status || 'Đã nộp',
-        tepCV: applicationData.resume || '',
+        ngayNop: applicationData.submitDate?.toISOString() || new Date().toISOString(),
+        trangThai: applicationData.status?.name || 'Submitted',
+        tepCV: applicationData.resumeFile || '',
         thuGioiThieu: applicationData.coverLetter || '',
         candidateId: candidateId.toString(),
         jobId: jobId.toString(),
-        statusId: `status_${applicationData.status || 'pending'}`
+        statusId: `status_${applicationData.status?.name || 'Submitted'}`
       });
       
       return result.records[0]?.get('app').properties;
@@ -385,6 +389,64 @@ class Neo4jService {
       });
       
       return { success: true };
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
+   * Cập nhật status của application
+   */
+  async updateApplicationStatus(applicationId, newStatus) {
+    const session = driver().session();
+    try {
+      const query = `
+        MATCH (app:Application {MaHS: $applicationId})
+        SET app.TrangThai = $newStatus
+        
+        // Xóa relationship cũ với Status
+        WITH app
+        OPTIONAL MATCH (app)-[oldRel:HAS_STATUS]->(oldStatus:Status)
+        DELETE oldRel
+        
+        // Tạo relationship mới với Status
+        WITH app
+        MERGE (st:Status {MaTT: $statusId, TenTrangThai: $newStatus})
+        CREATE (app)-[:HAS_STATUS]->(st)
+        
+        RETURN app
+      `;
+      
+      await session.run(query, {
+        applicationId: applicationId.toString(),
+        newStatus: newStatus,
+        statusId: `status_${newStatus}`
+      });
+      
+      return { success: true };
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
+   * Xóa Application node và tất cả relationships
+   */
+  async deleteApplication(applicationId) {
+    const session = driver().session();
+    try {
+      const query = `
+        MATCH (app:Application {MaHS: $applicationId})
+        DETACH DELETE app
+        RETURN count(app) as deleted
+      `;
+      
+      const result = await session.run(query, { 
+        applicationId: applicationId.toString() 
+      });
+      const deleted = result.records[0]?.get('deleted').toNumber() || 0;
+      
+      return { success: deleted > 0, deleted };
     } finally {
       await session.close();
     }
@@ -776,29 +838,38 @@ class Neo4jService {
     const session = driver().session();
     try {
       const query = `
-        MATCH (a:Account) WITH COUNT(a) as accounts
-        MATCH (c:Candidate) WITH accounts, COUNT(c) as candidates
-        MATCH (e:Employer) WITH accounts, candidates, COUNT(e) as employers
-        MATCH (j:JobPost) WITH accounts, candidates, employers, COUNT(j) as jobs
-        MATCH (s:Skill) WITH accounts, candidates, employers, jobs, COUNT(s) as skills
-        MATCH (app:Application) WITH accounts, candidates, employers, jobs, skills, COUNT(app) as applications
-        MATCH (pos:Position) WITH accounts, candidates, employers, jobs, skills, applications, COUNT(pos) as positions
-        MATCH (loc:Location) WITH accounts, candidates, employers, jobs, skills, applications, positions, COUNT(loc) as locations
-        MATCH (st:Status) WITH accounts, candidates, employers, jobs, skills, applications, positions, locations, COUNT(st) as statuses
+        OPTIONAL MATCH (a:Account)
+        WITH COUNT(a) as accounts
+        OPTIONAL MATCH (c:Candidate)
+        WITH accounts, COUNT(c) as candidates
+        OPTIONAL MATCH (e:Employer)
+        WITH accounts, candidates, COUNT(e) as employers
+        OPTIONAL MATCH (j:JobPost)
+        WITH accounts, candidates, employers, COUNT(j) as jobs
+        OPTIONAL MATCH (s:Skill)
+        WITH accounts, candidates, employers, jobs, COUNT(s) as skills
+        OPTIONAL MATCH (app:Application)
+        WITH accounts, candidates, employers, jobs, skills, COUNT(app) as applications
+        OPTIONAL MATCH (pos:Position)
+        WITH accounts, candidates, employers, jobs, skills, applications, COUNT(pos) as positions
+        OPTIONAL MATCH (loc:Location)
+        WITH accounts, candidates, employers, jobs, skills, applications, positions, COUNT(loc) as locations
+        OPTIONAL MATCH (st:Status)
+        WITH accounts, candidates, employers, jobs, skills, applications, positions, locations, COUNT(st) as statuses
         
-        MATCH ()-[r:HAS_SKILL]->() 
+        OPTIONAL MATCH ()-[r:HAS_SKILL]->() 
         WITH accounts, candidates, employers, jobs, skills, applications, positions, locations, statuses, COUNT(r) as candidateSkills
         
-        MATCH ()-[r2:REQUIRES_SKILL]->() 
+        OPTIONAL MATCH ()-[r2:REQUIRES_SKILL]->() 
         WITH accounts, candidates, employers, jobs, skills, applications, positions, locations, statuses, candidateSkills, COUNT(r2) as jobRequirements
         
-        MATCH ()-[r3:SUBMITTED]->() 
+        OPTIONAL MATCH ()-[r3:SUBMITTED]->() 
         WITH accounts, candidates, employers, jobs, skills, applications, positions, locations, statuses, candidateSkills, jobRequirements, COUNT(r3) as submissions
         
-        MATCH ()-[r4:POSTED]->() 
+        OPTIONAL MATCH ()-[r4:POSTED]->() 
         WITH accounts, candidates, employers, jobs, skills, applications, positions, locations, statuses, candidateSkills, jobRequirements, submissions, COUNT(r4) as posts
         
-        MATCH ()-[r5:VIEWED]->() 
+        OPTIONAL MATCH ()-[r5:VIEWED]->() 
         WITH accounts, candidates, employers, jobs, skills, applications, positions, locations, statuses, candidateSkills, jobRequirements, submissions, posts, COUNT(r5) as views
         
         RETURN accounts, candidates, employers, jobs, skills, applications, positions, locations, statuses,

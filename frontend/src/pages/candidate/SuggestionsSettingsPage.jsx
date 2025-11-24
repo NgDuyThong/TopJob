@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AdjustmentsHorizontalIcon,
   MapPinIcon,
@@ -6,26 +6,63 @@ import {
   BriefcaseIcon,
   BuildingOfficeIcon,
   CheckCircleIcon,
-  XMarkIcon
+  XMarkIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
+import { jobPreferenceService } from '../../services/jobPreferenceService';
 
 const SuggestionsSettingsPage = () => {
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [settings, setSettings] = useState({
-    preferredLocations: ['Hà Nội', 'TP.HCM'],
-    salaryRange: { min: 15, max: 30 }, // triệu
-    jobTypes: ['Full-time', 'Remote'],
-    experienceLevels: ['Junior', 'Middle'],
-    companyTypes: ['Product', 'Startup'],
-    industries: ['Công nghệ thông tin', 'Fintech'],
-    skills: ['React', 'Node.js', 'MongoDB'],
+    preferredLocations: [],
+    salaryRange: { min: 0, max: 100 },
+    jobTypes: [],
+    experienceLevels: [],
+    companyTypes: [],
+    industries: [],
+    preferredSkills: [],
     willingToRelocate: false,
     receiveRecommendations: true,
+    notificationFrequency: 'weekly'
   });
+
+  // Load preferences khi component mount
+  useEffect(() => {
+    loadPreferences();
+  }, []);
+
+  const loadPreferences = async () => {
+    try {
+      setLoading(true);
+      const response = await jobPreferenceService.getPreferences();
+      if (response.data) {
+        setSettings({
+          preferredLocations: response.data.preferredLocations || [],
+          salaryRange: response.data.salaryRange || { min: 0, max: 100 },
+          jobTypes: response.data.jobTypes || [],
+          experienceLevels: response.data.experienceLevels || [],
+          companyTypes: response.data.companyTypes || [],
+          industries: response.data.industries || [],
+          preferredSkills: response.data.preferredSkills || [],
+          willingToRelocate: response.data.willingToRelocate || false,
+          receiveRecommendations: response.data.receiveRecommendations !== false,
+          notificationFrequency: response.data.notificationFrequency || 'weekly'
+        });
+      }
+    } catch (error) {
+      console.error('Error loading preferences:', error);
+      toast.error('Không thể tải cài đặt');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const [newSkill, setNewSkill] = useState('');
   const [newLocation, setNewLocation] = useState('');
+  const [newIndustry, setNewIndustry] = useState('');
 
   const cities = ['Hà Nội', 'TP.HCM', 'Đà Nẵng', 'Cần Thơ', 'Hải Phòng', 'Nha Trang', 'Huế', 'Vũng Tàu'];
   const jobTypes = ['Full-time', 'Part-time', 'Remote', 'Freelance', 'Internship'];
@@ -43,14 +80,14 @@ const SuggestionsSettingsPage = () => {
   ];
 
   const handleAddSkill = () => {
-    if (newSkill && !settings.skills.includes(newSkill)) {
-      setSettings({ ...settings, skills: [...settings.skills, newSkill] });
+    if (newSkill && !settings.preferredSkills.includes(newSkill)) {
+      setSettings({ ...settings, preferredSkills: [...settings.preferredSkills, newSkill] });
       setNewSkill('');
     }
   };
 
   const handleRemoveSkill = (skill) => {
-    setSettings({ ...settings, skills: settings.skills.filter(s => s !== skill) });
+    setSettings({ ...settings, preferredSkills: settings.preferredSkills.filter(s => s !== skill) });
   };
 
   const handleAddLocation = () => {
@@ -76,16 +113,64 @@ const SuggestionsSettingsPage = () => {
   const handleSave = async () => {
     try {
       setSaving(true);
-      // TODO: API call to save settings
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Validate
+      if (settings.salaryRange.min > settings.salaryRange.max) {
+        toast.error('Mức lương tối thiểu không thể lớn hơn mức lương tối đa');
+        return;
+      }
+
+      await jobPreferenceService.updatePreferences(settings);
       toast.success('Đã lưu cài đặt gợi ý việc làm');
     } catch (error) {
       console.error('Error saving settings:', error);
-      toast.error('Không thể lưu cài đặt');
+      toast.error(error.message || 'Không thể lưu cài đặt');
     } finally {
       setSaving(false);
     }
   };
+
+  const handleReset = async () => {
+    if (!window.confirm('Bạn có chắc muốn đặt lại tất cả cài đặt về mặc định?')) {
+      return;
+    }
+
+    try {
+      setResetting(true);
+      const response = await jobPreferenceService.resetPreferences();
+      if (response.data) {
+        setSettings({
+          preferredLocations: response.data.preferredLocations || [],
+          salaryRange: response.data.salaryRange || { min: 0, max: 100 },
+          jobTypes: response.data.jobTypes || [],
+          experienceLevels: response.data.experienceLevels || [],
+          companyTypes: response.data.companyTypes || [],
+          industries: response.data.industries || [],
+          preferredSkills: response.data.preferredSkills || [],
+          willingToRelocate: response.data.willingToRelocate || false,
+          receiveRecommendations: response.data.receiveRecommendations !== false,
+          notificationFrequency: response.data.notificationFrequency || 'weekly'
+        });
+      }
+      toast.success('Đã đặt lại cài đặt về mặc định');
+    } catch (error) {
+      console.error('Error resetting settings:', error);
+      toast.error('Không thể đặt lại cài đặt');
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-gradient-to-br from-orange-50 via-white to-amber-50 min-h-screen py-8 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="spinner mx-auto mb-4"></div>
+          <p className="text-gray-600">Đang tải cài đặt...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gradient-to-br from-orange-50 via-white to-amber-50 min-h-screen py-8 px-4 sm:px-6 lg:px-8">
@@ -384,7 +469,7 @@ const SuggestionsSettingsPage = () => {
             </div>
             <div className="p-6">
               <div className="flex flex-wrap gap-2 mb-4">
-                {settings.skills.map((skill) => (
+                {settings.preferredSkills.map((skill) => (
                   <span
                     key={skill}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-rose-100 to-pink-100 text-rose-700 rounded-full font-medium"
@@ -416,11 +501,28 @@ const SuggestionsSettingsPage = () => {
             </div>
           </div>
 
-          {/* Save Button */}
+          {/* Action Buttons */}
           <div className="flex justify-end gap-4">
             <button
+              onClick={handleReset}
+              disabled={saving || resetting}
+              className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2"
+            >
+              {resetting ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-gray-700"></div>
+                  Đang đặt lại...
+                </>
+              ) : (
+                <>
+                  <ArrowPathIcon className="h-5 w-5" />
+                  Đặt lại mặc định
+                </>
+              )}
+            </button>
+            <button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || resetting}
               className="px-8 py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl hover:from-orange-700 hover:to-amber-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2"
             >
               {saving ? (

@@ -232,6 +232,15 @@ export const withdrawApplication = async (req, res) => {
     // Xóa đơn ứng tuyển
     await application.deleteOne();
 
+    // Sync to Neo4j
+    try {
+      const neo4jService = (await import('../services/neo4jService.js')).default;
+      await neo4jService.deleteApplication(application._id.toString());
+      console.log('✅ [Neo4j] Deleted application:', application._id);
+    } catch (neo4jError) {
+      console.error('⚠️ [Neo4j] Failed to delete application:', neo4jError.message);
+    }
+
     res.json({
       status: 'success',
       message: 'Rút đơn ứng tuyển thành công'
@@ -276,6 +285,15 @@ export const updateApplicationStatus = async (req, res) => {
     };
 
     await application.save();
+
+    // Sync to Neo4j
+    try {
+      const neo4jService = (await import('../services/neo4jService.js')).default;
+      await neo4jService.updateApplicationStatus(application._id.toString(), status);
+      console.log('✅ [Neo4j] Synced application status update:', application._id);
+    } catch (neo4jError) {
+      console.error('⚠️ [Neo4j] Failed to sync application status:', neo4jError.message);
+    }
 
     // Gửi email thông báo cho ứng viên (xử lý lỗi riêng)
     try {

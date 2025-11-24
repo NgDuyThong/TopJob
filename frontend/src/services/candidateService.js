@@ -46,7 +46,9 @@ export const candidateService = {
   getRecommendedJobs: async () => {
     try {
       // backend route is '/candidates/matching-jobs'
-      const response = await api.get('/candidates/matching-jobs');
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      const response = await api.get(`/candidates/matching-jobs?_t=${timestamp}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;

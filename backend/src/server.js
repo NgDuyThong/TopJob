@@ -18,6 +18,7 @@ import applicationRoutes from "./routes/applicationRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import comparisonRoutes from "./routes/comparisonRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import jobPreferenceRoutes from "./routes/jobPreferenceRoutes.js";
 
 // Middlewares
 import { verifyToken } from "./middlewares/auth.js";
@@ -52,6 +53,7 @@ app.use('/api/jobs', jobPostRoutes); // Một số endpoint không cần auth
 app.use('/api/applications', verifyToken, applicationRoutes);
 app.use('/api/comparison', comparisonRoutes); // MongoDB vs Neo4j Comparison
 app.use('/api/admin', adminRoutes); // Admin routes with authentication
+app.use('/api/job-preferences', jobPreferenceRoutes); // Job preferences for candidates
 
 // Health check route
 app.get("/api/health", (req, res) => {

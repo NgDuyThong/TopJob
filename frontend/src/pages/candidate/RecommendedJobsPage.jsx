@@ -26,9 +26,30 @@ const RecommendedJobsPage = () => {
     try {
       setLoading(true);
       const response = await candidateService.getRecommendedJobs();
+      
+      // Debug logging
+      console.log('🔍 [RecommendedJobs] API Response:', response);
+      console.log('🔍 [RecommendedJobs] Source:', response.source);
+      console.log('🔍 [RecommendedJobs] Jobs count:', response.data?.length || 0);
+      
+      if (response.data && response.data.length > 0) {
+        console.log('🔍 [RecommendedJobs] First job:', {
+          title: response.data[0].title,
+          matchScore: response.data[0].matchScore,
+          matchingSkillsCount: response.data[0].matchingSkillsCount,
+          totalRequiredSkills: response.data[0].totalRequiredSkills,
+          matchingSkills: response.data[0].matchingSkills
+        });
+        
+        // Log all match scores
+        const scores = response.data.map(j => j.matchScore);
+        console.log('🔍 [RecommendedJobs] All match scores:', scores);
+        console.log('🔍 [RecommendedJobs] Unique scores:', [...new Set(scores)]);
+      }
+      
       setRecommendedJobs(response.data || []);
     } catch (error) {
-      console.error('Error loading recommended jobs:', error);
+      console.error('❌ [RecommendedJobs] Error loading:', error);
     } finally {
       setLoading(false);
     }
@@ -85,11 +106,23 @@ const RecommendedJobsPage = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Việc làm phù hợp với bạn</h1>
-          <p className="text-gray-600">
-            Dựa trên kỹ năng và kinh nghiệm của bạn, chúng tôi đã tìm thấy {recommendedJobs.length} việc làm phù hợp
-          </p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Việc làm phù hợp với bạn</h1>
+            <p className="text-gray-600">
+              Dựa trên kỹ năng và kinh nghiệm của bạn, chúng tôi đã tìm thấy {recommendedJobs.length} việc làm phù hợp
+            </p>
+          </div>
+          <button
+            onClick={loadRecommendedJobs}
+            disabled={loading}
+            className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
+          >
+            <svg className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {loading ? 'Đang tải...' : 'Làm mới'}
+          </button>
         </div>
 
         {/* How it works */}
@@ -150,8 +183,8 @@ const RecommendedJobsPage = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getMatchScoreColor(job.matchScore)}`}>
-                          {job.matchScore}% phù hợp
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getMatchScoreColor(job.matchScore || 0)}`}>
+                          {job.matchScore || 0}% phù hợp
                         </span>
                       </div>
                       <p className="text-purple-600 font-medium mb-2">{job.employerId?.companyName || 'Công ty'}</p>
@@ -193,10 +226,17 @@ const RecommendedJobsPage = () => {
 
                 {/* Matching Skills */}
                 <div className="mb-4">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Kỹ năng phù hợp:</h4>
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">
+                    Kỹ năng phù hợp: {job.matchingSkillsCount || 0}/{job.totalRequiredSkills || job.skillsRequired?.length || 0}
+                  </h4>
                   <div className="flex flex-wrap gap-2">
                     {job.skillsRequired?.slice(0, 5).map((skill, index) => {
-                      const isMatching = job.matchingSkills?.some(ms => ms.name === skill.name);
+                      // matchingSkills từ Neo4j là array of strings
+                      const skillName = typeof skill === 'string' ? skill : skill.name;
+                      const isMatching = job.matchingSkills?.includes(skillName) || 
+                                       job.matchingSkills?.some(ms => 
+                                         (typeof ms === 'string' ? ms : ms.name) === skillName
+                                       );
                       return (
                         <span
                           key={index}
@@ -207,7 +247,7 @@ const RecommendedJobsPage = () => {
                           }`}
                         >
                           {isMatching && <CheckCircleIcon className="h-3 w-3" />}
-                          {skill.name}
+                          {skillName}
                         </span>
                       );
                     })}
