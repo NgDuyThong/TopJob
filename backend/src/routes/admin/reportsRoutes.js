@@ -1,10 +1,14 @@
 import express from 'express';
 import {
   getReports,
-  getReportsSummary
+  getReportsSummary,
+  getDashboardStats
 } from '../../controllers/admin/reportsController.js';
 
 const router = express.Router();
+
+// Get dashboard statistics (overall stats)
+router.get('/dashboard', getDashboardStats);
 
 // Get reports data with date range filtering
 router.get('/', getReports);

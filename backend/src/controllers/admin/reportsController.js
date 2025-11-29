@@ -128,6 +128,95 @@ export const getReports = async (req, res) => {
 };
 
 /**
+ * Get dashboard statistics (overall stats without date filtering)
+ * @route GET /api/admin/reports/dashboard
+ * @access Admin only
+ */
+export const getDashboardStats = async (req, res) => {
+  try {
+    // Run all queries in parallel for optimal performance
+    const [
+      totalUsers,
+      totalCandidates,
+      totalEmployers,
+      totalJobs,
+      activeJobs,
+      totalApplications,
+      pendingApplications,
+      jobViewsStats
+    ] = await Promise.all([
+      // 1. Total users
+      Account.countDocuments(),
+      
+      // 2. Total candidates
+      Account.countDocuments({ type: 'candidate' }),
+      
+      // 3. Total employers
+      Account.countDocuments({ type: 'employer' }),
+      
+      // 4. Total jobs
+      JobPost.countDocuments(),
+      
+      // 5. Active jobs (status: 'open')
+      JobPost.countDocuments({ status: 'open' }),
+      
+      // 6. Total applications
+      Application.countDocuments(),
+      
+      // 7. Pending applications (status.name: 'Submitted')
+      Application.countDocuments({ 'status.name': 'Submitted' }),
+      
+      // 8. Total views across all jobs
+      JobPost.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalViews: { $sum: '$views' },
+            totalJobs: { $sum: 1 }
+          }
+        }
+      ])
+    ]);
+
+    const viewsData = jobViewsStats[0] || { totalViews: 0, totalJobs: 0 };
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        users: {
+          total: totalUsers,
+          candidates: totalCandidates,
+          employers: totalEmployers
+        },
+        jobs: {
+          total: totalJobs,
+          active: activeJobs,
+          closed: totalJobs - activeJobs
+        },
+        applications: {
+          total: totalApplications,
+          pending: pendingApplications,
+          processed: totalApplications - pendingApplications
+        },
+        engagement: {
+          totalViews: viewsData.totalViews,
+          averageViewsPerJob: viewsData.totalJobs > 0 
+            ? Math.round(viewsData.totalViews / viewsData.totalJobs) 
+            : 0
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch dashboard statistics',
+      error: error.message
+    });
+  }
+};
+
+/**
  * Get summary statistics for reports page
  * @route GET /api/admin/reports/summary
  * @access Admin only

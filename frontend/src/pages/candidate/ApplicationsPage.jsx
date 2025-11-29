@@ -11,6 +11,8 @@ import {
   DocumentTextIcon
 } from '@heroicons/react/24/outline';
 import { candidateService } from '../../services/candidateService';
+import { applicationService } from '../../services/applicationService';
+import { toast } from 'react-toastify';
 
 const ApplicationsPage = () => {
   const [applications, setApplications] = useState([]);
@@ -34,6 +36,22 @@ const ApplicationsPage = () => {
       console.error('Error loading applications:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleWithdrawApplication = async (applicationId) => {
+    if (!window.confirm('Bạn có chắc chắn muốn rút đơn ứng tuyển này?')) {
+      return;
+    }
+
+    try {
+      await applicationService.withdrawApplication(applicationId);
+      toast.success('Đã rút đơn ứng tuyển thành công');
+      // Reload applications
+      loadApplications();
+    } catch (error) {
+      console.error('Error withdrawing application:', error);
+      toast.error(error.message || 'Không thể rút đơn ứng tuyển');
     }
   };
 
@@ -215,7 +233,10 @@ const ApplicationsPage = () => {
                         Xem việc làm
                       </Link>
                       {(application.status?.name || application.status) === 'Submitted' && (
-                        <button className="text-red-600 hover:text-red-700 font-medium text-sm">
+                        <button 
+                          onClick={() => handleWithdrawApplication(application._id)}
+                          className="text-red-600 hover:text-red-700 font-medium text-sm transition-colors"
+                        >
                           Rút đơn
                         </button>
                       )}
