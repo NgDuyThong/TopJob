@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChartBarIcon, UsersIcon, BriefcaseIcon, DocumentTextIcon, ArrowTrendingUpIcon, ArrowTrendingDownIcon } from '@heroicons/react/24/outline';
+import { UsersIcon, BriefcaseIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { api } from '../../services/api';
 
@@ -598,45 +598,6 @@ const ReportsPage = () => {
                         </div>
                     </>
                 )}
-
-                {/* Additional Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm font-medium text-gray-600">Tỷ lệ chuyển đổi</p>
-                            <ArrowTrendingUpIcon className="h-4 w-4 text-green-600" />
-                        </div>
-                        <p className="text-2xl font-bold text-gray-900">24.5%</p>
-                        <p className="text-xs text-gray-500 mt-1">+2.3% so với tháng trước</p>
-                    </div>
-
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm font-medium text-gray-600">Thời gian trung bình</p>
-                            <ArrowTrendingDownIcon className="h-4 w-4 text-red-600" />
-                        </div>
-                        <p className="text-2xl font-bold text-gray-900">14 ngày</p>
-                        <p className="text-xs text-gray-500 mt-1">-1 ngày so với tháng trước</p>
-                    </div>
-
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm font-medium text-gray-600">Tỷ lệ thành công</p>
-                            <ArrowTrendingUpIcon className="h-4 w-4 text-green-600" />
-                        </div>
-                        <p className="text-2xl font-bold text-gray-900">68.2%</p>
-                        <p className="text-xs text-gray-500 mt-1">+5.1% so với tháng trước</p>
-                    </div>
-
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm font-medium text-gray-600">Đánh giá trung bình</p>
-                            <ArrowTrendingUpIcon className="h-4 w-4 text-green-600" />
-                        </div>
-                        <p className="text-2xl font-bold text-gray-900">4.7/5</p>
-                        <p className="text-xs text-gray-500 mt-1">+0.2 so với tháng trước</p>
-                    </div>
-                </div>
             </div>
         </AdminLayout>
     );
