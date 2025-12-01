@@ -60,7 +60,6 @@ Bước 4: Neo4j thực hiện Cypher query:
 Bước 5: Sắp xếp theo điểm phù hợp giảm dần
 Bước 6: Lấy thông tin chi tiết từ MongoDB
 Bước 7: Hiển thị danh sách gợi ý trên trang chủ
-```
 
 **Ví dụ thực tế:**
 - Ứng viên A có skills: [React, Node.js, MongoDB]
@@ -82,8 +81,8 @@ Bước 1: Nhà tuyển dụng đăng tin tuyển dụng với yêu cầu:
    
 Bước 2: Nhà tuyển dụng click "Tìm ứng viên phù hợp"
 Bước 3: Neo4j thực hiện matching:
-   - Tìm candidates có skills match với job requirements
-   - Tính % skills phù hợp
+   - Tìm ứng viên có skills match với job requirements (v)
+   - Tính % skills phù hợp (v)
    - Kiểm tra experience level
    - Kiểm tra location preference
    

@@ -159,34 +159,22 @@ class Neo4jService {
         MERGE (j:JobPost {MaBTD: $id})
         SET j.TieuDe = $tieuDe,
             j.MoTa = $moTa,
-            j.YeuCau = $yeuCau,
-            j.TrinhDo = $trinhDo,
             j.KinhNghiem = $kinhNghiem,
             j.MucLuong = $mucLuong,
             j.HanNop = $hanNop,
             j.NgayDang = datetime($ngayDang),
             j.TrangThai = $trangThai,
-            j.SoLuongTuyen = $soLuong,
+            j.DiaChi = $diaChi,
+            j.ThanhPho = $thanhPho,
+            j.ViTri = $viTri,
+            j.CapBac = $capBac,
+            j.LoaiCongViec = $loaiCongViec,
+            j.HinhThucLamViec = $hinhThucLamViec,
+            j.NgonNgu = $ngonNgu,
+            j.LuotXem = $luotXem,
+            j.SoLuongUngTuyen = $soLuongUngTuyen,
+            j.MaNTD = $employerId,
             j.updatedAt = datetime()
-        WITH j
-        
-        // Link to Employer
-        MATCH (e:Employer {MaNTD: $employerId})
-        MERGE (e)-[p:POSTED]->(j)
-        SET p.PostDate = datetime($ngayDang),
-            p.IsActive = $isActive
-        
-        // Link to Position
-        WITH j
-        MERGE (pos:Position {MaVT: $positionId, TenViTri: $positionName})
-        SET pos.CapBac = $capBac
-        MERGE (j)-[:FOR_POSITION]->(pos)
-        
-        // Link to Location
-        WITH j
-        MERGE (loc:Location {MaDD: $locationId, TenDiaDiem: $locationName})
-        MERGE (j)-[:LOCATED_AT]->(loc)
-        
         RETURN j
       `;
       
@@ -194,21 +182,21 @@ class Neo4jService {
         id: jobData._id.toString(),
         tieuDe: jobData.title || '',
         moTa: jobData.description || '',
-        yeuCau: jobData.requirements?.description || '',
-        trinhDo: jobData.requirements?.education || '',
-        kinhNghiem: jobData.requirements?.experience || 0,
-        mucLuong: jobData.salary?.max || 0,
+        kinhNghiem: jobData.position?.level || '',
+        mucLuong: jobData.salary || 'Thỏa thuận',
         hanNop: jobData.deadline?.toISOString() || '',
-        ngayDang: jobData.createdAt?.toISOString() || new Date().toISOString(),
-        trangThai: jobData.status || 'active',
-        soLuong: jobData.numberOfPositions || 1,
-        employerId: (jobData.employer || jobData.employerId || jobData.employer_id)?.toString() || '',
-        isActive: jobData.status === 'active',
-        positionId: jobData.position || 'pos_default',
-        positionName: jobData.title || 'Developer',
-        capBac: jobData.experienceLevel || 'Mid',
-        locationId: jobData.location || 'loc_default',
-        locationName: jobData.workLocation || 'TP.HCM'
+        ngayDang: jobData.datePosted?.toISOString() || new Date().toISOString(),
+        trangThai: jobData.status || 'open',
+        diaChi: jobData.location?.address || '',
+        thanhPho: jobData.location?.city || '',
+        viTri: jobData.position?.title || jobData.title || '',
+        capBac: jobData.position?.level || '',
+        loaiCongViec: jobData.position?.type || 'Full-time',
+        hinhThucLamViec: jobData.position?.workMode || 'On-site',
+        ngonNgu: jobData.language || '',
+        luotXem: jobData.views || 0,
+        soLuongUngTuyen: jobData.applicationsCount || 0,
+        employerId: jobData.employerId?.toString() || ''
       });
       
       return result.records[0]?.get('j').properties;
