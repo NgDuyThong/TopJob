@@ -9,10 +9,10 @@ const ReportsPage = () => {
         const end = new Date();
         const start = new Date();
         start.setDate(start.getDate() - 30);
-        
+
         return {
             start: start.toISOString().split('T')[0],
-            end: end.toISOString().split('T')[0]
+            end: end.toISOString().split('T')[0],
         };
     };
 
@@ -31,16 +31,16 @@ const ReportsPage = () => {
     const fetchReportsData = async () => {
         try {
             setLoading(true);
-            
+
             // Build query params
             const params = new URLSearchParams();
             if (startDate) params.append('startDate', startDate);
             if (endDate) params.append('endDate', endDate);
-            
+
             // Fetch reports and summary in parallel
             const [reportsRes, summaryRes] = await Promise.all([
                 api.get(`/admin/reports?${params.toString()}`),
-                api.get(`/admin/reports/summary?${params.toString()}`)
+                api.get(`/admin/reports/summary?${params.toString()}`),
             ]);
 
             console.log('Reports Data:', reportsRes.data.data);
@@ -55,263 +55,356 @@ const ReportsPage = () => {
         }
     };
 
-    // Sample data for charts (fallback)
-    const userRegistrations = [
-        { month: 'T1', value: 45, label: 'Jan' },
-        { month: 'T2', value: 52, label: 'Feb' },
-        { month: 'T3', value: 48, label: 'Mar' },
-        { month: 'T4', value: 68, label: 'Apr' },
-        { month: 'T5', value: 75, label: 'May' },
-        { month: 'T6', value: 82, label: 'Jun' },
-        { month: 'T7', value: 90, label: 'Jul' },
-        { month: 'T8', value: 85, label: 'Aug' },
-        { month: 'T9', value: 95, label: 'Sep' },
-        { month: 'T10', value: 88, label: 'Oct' },
-        { month: 'T11', value: 92, label: 'Nov' },
-        { month: 'T12', value: 105, label: 'Dec' }
-    ];
-
-    const jobPostings = [
-        { month: 'T1', value: 28 },
-        { month: 'T2', value: 35 },
-        { month: 'T3', value: 42 },
-        { month: 'T4', value: 38 },
-        { month: 'T5', value: 45 },
-        { month: 'T6', value: 52 },
-        { month: 'T7', value: 58 },
-        { month: 'T8', value: 55 },
-        { month: 'T9', value: 62 },
-        { month: 'T10', value: 68 },
-        { month: 'T11', value: 72 },
-        { month: 'T12', value: 78 }
-    ];
-
-    const applications = [
-        { month: 'T1', value: 120 },
-        { month: 'T2', value: 145 },
-        { month: 'T3', value: 165 },
-        { month: 'T4', value: 158 },
-        { month: 'T5', value: 185 },
-        { month: 'T6', value: 210 },
-        { month: 'T7', value: 235 },
-        { month: 'T8', value: 225 },
-        { month: 'T9', value: 255 },
-        { month: 'T10', value: 280 },
-        { month: 'T11', value: 295 },
-        { month: 'T12', value: 320 }
-    ];
-
     // Fill missing dates in range and group if needed
     const fillMissingDates = (data, start, end) => {
-        if (!data || data.length === 0) return [];
-        
-        const startDate = new Date(start);
-        const endDate = new Date(end);
-        const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
-        
-        // If more than 60 days, group by week
-        if (daysDiff > 60) {
-            return groupByWeek(data, startDate, endDate);
+        const startDateObj = new Date(start);
+        const endDateObj = new Date(end);
+        const daysDiff = Math.ceil((endDateObj - startDateObj) / (1000 * 60 * 60 * 24));
+
+        // Ensure data is an array (empty array is valid - means no data yet)
+        const safeData = Array.isArray(data) ? data : [];
+
+        // Smart grouping based on date range
+        // > 180 days (6 months): group by month
+        // > 45 days: group by week
+        // <= 45 days: show by day
+        if (daysDiff > 180) {
+            return groupByMonth(safeData, startDateObj, endDateObj);
+        } else if (daysDiff > 45) {
+            return groupByWeek(safeData, startDateObj, endDateObj);
         }
-        
+
         const result = [];
         const dataMap = {};
-        
+
         // Create map of existing data
-        data.forEach(item => {
+        safeData.forEach((item) => {
             dataMap[item.date] = item.count;
         });
-        
+
         // Fill all dates in range
-        const currentDate = new Date(startDate);
-        while (currentDate <= endDate) {
+        const currentDate = new Date(startDateObj);
+        while (currentDate <= endDateObj) {
             const dateStr = currentDate.toISOString().split('T')[0];
             result.push({
                 month: currentDate.toLocaleDateString('vi-VN', { day: 'numeric', month: 'numeric' }),
                 value: dataMap[dateStr] || 0,
-                label: dateStr
+                label: dateStr,
             });
             currentDate.setDate(currentDate.getDate() + 1);
         }
-        
+
         return result;
     };
 
     // Group data by week
     const groupByWeek = (data, startDate, endDate) => {
         const weekMap = {};
-        
+
         // Group existing data by week
-        data.forEach(item => {
+        data.forEach((item) => {
             const date = new Date(item.date);
             const weekStart = new Date(date);
             weekStart.setDate(date.getDate() - date.getDay()); // Start of week (Sunday)
             const weekKey = weekStart.toISOString().split('T')[0];
-            
+
             if (!weekMap[weekKey]) {
                 weekMap[weekKey] = 0;
             }
             weekMap[weekKey] += item.count;
         });
-        
+
         // Fill all weeks in range
         const result = [];
         const currentDate = new Date(startDate);
         currentDate.setDate(currentDate.getDate() - currentDate.getDay()); // Start from Sunday
-        
+
         while (currentDate <= endDate) {
             const weekKey = currentDate.toISOString().split('T')[0];
             const weekEnd = new Date(currentDate);
             weekEnd.setDate(weekEnd.getDate() + 6);
-            
+
             result.push({
                 month: `${currentDate.getDate()}/${currentDate.getMonth() + 1}`,
                 value: weekMap[weekKey] || 0,
-                label: `Tuần ${currentDate.toLocaleDateString('vi-VN', { day: 'numeric', month: 'numeric' })}`
+                label: `Tuần ${currentDate.toLocaleDateString('vi-VN', { day: 'numeric', month: 'numeric' })}`,
             });
-            
+
             currentDate.setDate(currentDate.getDate() + 7);
         }
-        
+
         return result;
     };
 
-    // Use real data if available, otherwise use sample data
-    const actualUserRegistrations = reportsData?.userRegistrations 
-        ? fillMissingDates(reportsData.userRegistrations, startDate, endDate)
-        : userRegistrations;
+    // Group data by month
+    const groupByMonth = (data, startDate, endDate) => {
+        const monthMap = {};
 
-    const actualJobPostings = reportsData?.jobPostings
-        ? fillMissingDates(reportsData.jobPostings, startDate, endDate)
-        : jobPostings;
+        // Group existing data by month
+        data.forEach((item) => {
+            const date = new Date(item.date);
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
-    const actualApplications = reportsData?.applicationSubmissions
-        ? fillMissingDates(reportsData.applicationSubmissions, startDate, endDate)
-        : applications;
+            if (!monthMap[monthKey]) {
+                monthMap[monthKey] = 0;
+            }
+            monthMap[monthKey] += item.count;
+        });
+
+        // Fill all months in range
+        const result = [];
+        const currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+        const endMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+
+        while (currentDate <= endMonth) {
+            const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+            const monthNames = ['Th1', 'Th2', 'Th3', 'Th4', 'Th5', 'Th6', 'Th7', 'Th8', 'Th9', 'Th10', 'Th11', 'Th12'];
+
+            result.push({
+                month: monthNames[currentDate.getMonth()],
+                value: monthMap[monthKey] || 0,
+                label: `Tháng ${currentDate.getMonth() + 1}/${currentDate.getFullYear()}`,
+            });
+
+            currentDate.setMonth(currentDate.getMonth() + 1);
+        }
+
+        return result;
+    };
+
+    // Use real data - always fill dates for the selected range
+    const actualUserRegistrations = reportsData
+        ? fillMissingDates(reportsData.userRegistrations || [], startDate, endDate)
+        : [];
+
+    const actualJobPostings = reportsData ? fillMissingDates(reportsData.jobPostings || [], startDate, endDate) : [];
+
+    const actualApplications = reportsData
+        ? fillMissingDates(reportsData.applicationSubmissions || [], startDate, endDate)
+        : [];
 
     // Debug logging
+    console.log('Reports Data:', reportsData);
     console.log('Actual User Registrations:', actualUserRegistrations);
     console.log('Actual Job Postings:', actualJobPostings);
     console.log('Actual Applications:', actualApplications);
 
-    const maxUserValue = Math.max(...actualUserRegistrations.map(d => d.value));
-    const maxJobValue = Math.max(...actualJobPostings.map(d => d.value));
-    const maxAppValue = Math.max(...actualApplications.map(d => d.value));
+    const maxUserValue =
+        actualUserRegistrations.length > 0 ? Math.max(...actualUserRegistrations.map((d) => d.value), 1) : 1;
+    const maxJobValue = actualJobPostings.length > 0 ? Math.max(...actualJobPostings.map((d) => d.value), 1) : 1;
+    const maxAppValue = actualApplications.length > 0 ? Math.max(...actualApplications.map((d) => d.value), 1) : 1;
 
-    const BarChart = ({ data, maxValue, color = 'purple' }) => {
-        // Show labels for every nth item based on data length
-        const labelInterval = data.length > 15 ? Math.ceil(data.length / 10) : 1;
-        
+    // Calculate days difference for display
+    const daysDiff = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24));
+
+    // Tooltip state for charts
+    const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, value: 0, label: '' });
+
+    const BarChart = ({ data, maxValue, color = 'purple', chartId }) => {
+        // Smart label interval based on data length
+        let labelInterval;
+        if (data.length <= 7) {
+            labelInterval = 1; // Show all labels for 7 days or less
+        } else if (data.length <= 15) {
+            labelInterval = 2; // Show every 2nd label
+        } else if (data.length <= 31) {
+            labelInterval = Math.ceil(data.length / 8); // ~8 labels for a month
+        } else {
+            labelInterval = Math.ceil(data.length / 10); // ~10 labels for longer periods
+        }
+
         // Color mapping
         const colorClasses = {
             purple: {
                 bg: 'bg-purple-600',
-                hover: 'hover:bg-purple-700'
+                hover: 'hover:bg-purple-700',
             },
             green: {
                 bg: 'bg-green-600',
-                hover: 'hover:bg-green-700'
+                hover: 'hover:bg-green-700',
             },
             blue: {
                 bg: 'bg-blue-600',
-                hover: 'hover:bg-blue-700'
-            }
+                hover: 'hover:bg-blue-700',
+            },
         };
-        
+
         const colors = colorClasses[color] || colorClasses.purple;
-        
+
+        // Dynamic bar width based on data length
+        // If few items: expand to fill container, if many: fixed width with scroll
+        const containerWidth = 600; // approximate container width
+        const minBarWidth = 40; // minimum bar width
+        const maxBarWidth = 80; // maximum bar width for few items
+        const barGap = 6;
+
+        // Calculate optimal bar width
+        let barWidth;
+        const totalGaps = (data.length - 1) * barGap;
+        const availableWidth = containerWidth - totalGaps - 32; // 32px for padding
+        const calculatedWidth = availableWidth / data.length;
+
+        if (calculatedWidth >= maxBarWidth) {
+            barWidth = maxBarWidth; // Cap at max width
+        } else if (calculatedWidth >= minBarWidth) {
+            barWidth = calculatedWidth; // Use calculated width
+        } else {
+            barWidth = minBarWidth; // Use minimum with scroll
+        }
+
+        // Determine if we need scroll
+        const needsScroll = data.length * (minBarWidth + barGap) > containerWidth;
+        const totalWidth = needsScroll ? data.length * (minBarWidth + barGap) : '100%';
+
+        const handleMouseEnter = (e, item) => {
+            const rect = e.target.getBoundingClientRect();
+            setTooltip({
+                visible: true,
+                x: rect.left + rect.width / 2,
+                y: rect.top - 10,
+                value: item.value,
+                label: item.label || item.month,
+            });
+        };
+
+        const handleMouseLeave = () => {
+            setTooltip({ ...tooltip, visible: false });
+        };
+
         return (
-            <div className="h-64 flex items-end justify-between gap-1 px-4">
-                {data.map((item, index) => {
-                    const height = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
-                    const showLabel = index % labelInterval === 0 || index === data.length - 1;
-                    
-                    return (
-                        <div key={index} className="flex-1 flex flex-col items-center gap-2 min-w-0">
-                            <div className="relative w-full group">
-                                <div 
-                                    className={`w-full ${colors.bg} ${colors.hover} rounded-t-lg transition-all duration-300 cursor-pointer relative`}
-                                    style={{ 
-                                        height: `${Math.max(height * 2, item.value > 0 ? 10 : 2)}px`,
-                                        minHeight: item.value > 0 ? '10px' : '2px'
+            <div className="h-72 flex flex-col relative">
+                {/* Bar chart area */}
+                <div className={`flex-1 ${needsScroll ? 'overflow-x-auto' : ''}`} style={{ paddingTop: '20px' }}>
+                    <div
+                        className="h-full flex items-end justify-center px-4"
+                        style={{
+                            minWidth: needsScroll ? `${totalWidth}px` : undefined,
+                            gap: `${barGap}px`,
+                        }}
+                    >
+                        {data.map((item, index) => {
+                            // Calculate height in pixels (max 200px)
+                            const heightPx = maxValue > 0 ? Math.round((item.value / maxValue) * 200) : 0;
+                            const showLabel = index % labelInterval === 0 || index === data.length - 1;
+
+                            return (
+                                <div
+                                    key={index}
+                                    className="flex flex-col items-center justify-end h-full"
+                                    style={{
+                                        width: needsScroll ? `${minBarWidth}px` : undefined,
+                                        minWidth: needsScroll ? `${minBarWidth}px` : undefined,
+                                        flex: needsScroll ? 'none' : '1',
+                                        maxWidth: `${maxBarWidth}px`,
                                     }}
-                                    title={`${item.label || item.month}: ${item.value}`}
                                 >
-                                    <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
-                                        <div className="font-semibold">{item.value}</div>
-                                        <div className="text-gray-300">{item.label || item.month}</div>
-                                    </div>
+                                    {/* Bar */}
+                                    <div
+                                        className={`w-full ${colors.bg} ${colors.hover} rounded-t transition-all duration-300 cursor-pointer`}
+                                        style={{ height: `${Math.max(heightPx, item.value > 0 ? 6 : 2)}px` }}
+                                        onMouseEnter={(e) => handleMouseEnter(e, item)}
+                                        onMouseLeave={handleMouseLeave}
+                                    />
+
+                                    {/* Label */}
+                                    {showLabel ? (
+                                        <span className="text-[11px] text-gray-500 text-center leading-tight mt-1.5 truncate w-full">
+                                            {item.month}
+                                        </span>
+                                    ) : (
+                                        <span className="text-[11px] invisible mt-1.5">.</span>
+                                    )}
                                 </div>
-                            </div>
-                            {showLabel && (
-                                <span className="text-xs text-gray-600 truncate w-full text-center">{item.month}</span>
-                            )}
-                        </div>
-                    );
-                })}
+                            );
+                        })}
+                    </div>
+                </div>
             </div>
         );
     };
 
     const LineChart = ({ data, maxValue, color = 'blue' }) => {
         if (!data || data.length === 0) return null;
-        
-        const points = data.map((item, index) => {
+
+        const pointsData = data.map((item, index) => {
             const x = data.length > 1 ? (index / (data.length - 1)) * 100 : 50;
             const y = maxValue > 0 ? 100 - (item.value / maxValue) * 100 : 100;
-            return `${x},${y}`;
-        }).join(' ');
+            return { x, y, value: item.value, label: item.label || item.month };
+        });
 
+        const points = pointsData.map((p) => `${p.x},${p.y}`).join(' ');
         const labelInterval = data.length > 15 ? Math.ceil(data.length / 10) : Math.ceil(data.length / 6);
+        const strokeColor = color === 'blue' ? '#3b82f6' : color === 'green' ? '#10b981' : '#9333ea';
 
         return (
             <div className="h-64 relative">
-                <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    {/* Grid lines */}
-                    {[0, 25, 50, 75, 100].map((y) => (
-                        <line
-                            key={y}
-                            x1="0"
-                            y1={y}
-                            x2="100"
-                            y2={y}
-                            stroke="#e5e7eb"
-                            strokeWidth="0.2"
+                {/* SVG Chart */}
+                <div className="h-52 relative">
+                    <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                        {/* Grid lines */}
+                        {[0, 25, 50, 75, 100].map((y) => (
+                            <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="#e5e7eb" strokeWidth="0.2" />
+                        ))}
+
+                        {/* Area under line */}
+                        <polygon points={`0,100 ${points} 100,100`} fill={`url(#gradient-${color})`} opacity="0.3" />
+
+                        {/* Line */}
+                        <polyline
+                            points={points}
+                            fill="none"
+                            stroke={strokeColor}
+                            strokeWidth="0.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
                         />
-                    ))}
-                    
-                    {/* Area under line */}
-                    <polygon
-                        points={`0,100 ${points} 100,100`}
-                        fill={`url(#gradient-${color})`}
-                        opacity="0.3"
-                    />
-                    
-                    {/* Line */}
-                    <polyline
-                        points={points}
-                        fill="none"
-                        stroke={color === 'blue' ? '#3b82f6' : color === 'green' ? '#10b981' : '#9333ea'}
-                        strokeWidth="0.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                    />
-                    
-                    {/* Gradient definition */}
-                    <defs>
-                        <linearGradient id={`gradient-${color}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" stopColor={color === 'blue' ? '#3b82f6' : color === 'green' ? '#10b981' : '#9333ea'} />
-                            <stop offset="100%" stopColor={color === 'blue' ? '#3b82f6' : color === 'green' ? '#10b981' : '#9333ea'} stopOpacity="0" />
-                        </linearGradient>
-                    </defs>
-                </svg>
-                
+
+                        {/* Gradient definition */}
+                        <defs>
+                            <linearGradient id={`gradient-${color}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stopColor={strokeColor} />
+                                <stop offset="100%" stopColor={strokeColor} stopOpacity="0" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+
+                    {/* Interactive hover points overlay */}
+                    <div className="absolute inset-0">
+                        {pointsData.map((point, index) => (
+                            <div
+                                key={index}
+                                className="absolute group"
+                                style={{
+                                    left: `${point.x}%`,
+                                    top: `${point.y}%`,
+                                    transform: 'translate(-50%, -50%)',
+                                }}
+                            >
+                                {/* Hover area */}
+                                <div className="w-6 h-6 cursor-pointer" />
+                                {/* Visible dot on hover */}
+                                <div
+                                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    style={{ backgroundColor: strokeColor }}
+                                />
+                                {/* Tooltip */}
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-30 pointer-events-none shadow-lg">
+                                    <div className="font-semibold">{point.value}</div>
+                                    <div className="text-gray-300 text-[10px]">{point.label}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
                 {/* X-axis labels */}
                 <div className="flex justify-between px-4 mt-2">
                     {data.map((item, index) => {
                         const showLabel = index % labelInterval === 0 || index === data.length - 1;
                         return showLabel ? (
-                            <span key={index} className="text-xs text-gray-600">{item.month}</span>
+                            <span key={index} className="text-xs text-gray-600">
+                                {item.month}
+                            </span>
                         ) : null;
                     })}
                 </div>
@@ -321,6 +414,22 @@ const ReportsPage = () => {
 
     return (
         <AdminLayout>
+            {/* Global Tooltip */}
+            {tooltip.visible && (
+                <div
+                    className="fixed bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl pointer-events-none"
+                    style={{
+                        left: tooltip.x,
+                        top: tooltip.y,
+                        transform: 'translate(-50%, -100%)',
+                        zIndex: 9999,
+                    }}
+                >
+                    <div className="font-bold text-lg">{tooltip.value}</div>
+                    <div className="text-gray-300 text-sm">{tooltip.label}</div>
+                </div>
+            )}
+
             <div>
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-gray-900 mb-2">Báo cáo thống kê</h1>
@@ -339,7 +448,7 @@ const ReportsPage = () => {
                             {loading ? 'Đang tải...' : 'Làm mới'}
                         </button>
                     </div>
-                    
+
                     {/* Quick date range buttons */}
                     <div className="flex flex-wrap gap-2 mb-4">
                         <button
@@ -453,7 +562,8 @@ const ReportsPage = () => {
                                             </p>
                                             <div className="flex items-center gap-1 mt-1">
                                                 <span className="text-xs text-gray-500">
-                                                    {summary?.usersByRole?.candidate || 0} ứng viên, {summary?.usersByRole?.employer || 0} nhà tuyển dụng
+                                                    {summary?.usersByRole?.candidate || 0} ứng viên,{' '}
+                                                    {summary?.usersByRole?.employer || 0} nhà tuyển dụng
                                                 </span>
                                             </div>
                                         </div>
@@ -476,7 +586,8 @@ const ReportsPage = () => {
                                             </p>
                                             <div className="flex items-center gap-1 mt-1">
                                                 <span className="text-xs text-gray-500">
-                                                    {summary?.jobsByStatus?.open || 0} đang mở, {summary?.jobsByStatus?.closed || 0} đã đóng
+                                                    {summary?.jobsByStatus?.open || 0} đang mở,{' '}
+                                                    {summary?.jobsByStatus?.closed || 0} đã đóng
                                                 </span>
                                             </div>
                                         </div>
@@ -517,9 +628,7 @@ const ReportsPage = () => {
                             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                                 <div className="flex items-center justify-between mb-2">
                                     <h2 className="text-lg font-semibold text-gray-900">Đăng ký người dùng</h2>
-                                    <span className="text-sm text-gray-500">
-                                        {actualUserRegistrations.length} {actualUserRegistrations.length > 60 ? 'tuần' : 'ngày'}
-                                    </span>
+                                    <span className="text-sm text-gray-500">{daysDiff} ngày</span>
                                 </div>
                                 <div className="mb-4 flex items-baseline gap-4">
                                     <div>
@@ -529,7 +638,12 @@ const ReportsPage = () => {
                                         <span className="text-sm text-gray-500 ml-2">người dùng mới</span>
                                     </div>
                                     <div className="text-sm text-gray-500">
-                                        Trung bình: {Math.round(actualUserRegistrations.reduce((sum, item) => sum + item.value, 0) / actualUserRegistrations.length || 0)}/{actualUserRegistrations.length > 60 ? 'tuần' : 'ngày'}
+                                        Trung bình:{' '}
+                                        {Math.round(
+                                            actualUserRegistrations.reduce((sum, item) => sum + item.value, 0) /
+                                                daysDiff,
+                                        ) || 0}
+                                        /ngày
                                     </div>
                                 </div>
                                 {actualUserRegistrations.length > 0 ? (
@@ -544,9 +658,7 @@ const ReportsPage = () => {
                             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                                 <div className="flex items-center justify-between mb-2">
                                     <h2 className="text-lg font-semibold text-gray-900">Việc làm đăng tuyển</h2>
-                                    <span className="text-sm text-gray-500">
-                                        {actualJobPostings.length} {actualJobPostings.length > 60 ? 'tuần' : 'ngày'}
-                                    </span>
+                                    <span className="text-sm text-gray-500">{daysDiff} ngày</span>
                                 </div>
                                 <div className="mb-4 flex items-baseline gap-4">
                                     <div>
@@ -556,7 +668,11 @@ const ReportsPage = () => {
                                         <span className="text-sm text-gray-500 ml-2">việc làm mới</span>
                                     </div>
                                     <div className="text-sm text-gray-500">
-                                        Trung bình: {Math.round(actualJobPostings.reduce((sum, item) => sum + item.value, 0) / actualJobPostings.length || 0)}/{actualJobPostings.length > 60 ? 'tuần' : 'ngày'}
+                                        Trung bình:{' '}
+                                        {Math.round(
+                                            actualJobPostings.reduce((sum, item) => sum + item.value, 0) / daysDiff,
+                                        ) || 0}
+                                        /ngày
                                     </div>
                                 </div>
                                 {actualJobPostings.length > 0 ? (
